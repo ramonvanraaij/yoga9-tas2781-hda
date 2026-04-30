@@ -320,12 +320,14 @@ use that fixup for the Yoga Pro 9 16IMH9 — the ACPI HID here is `TIAS2781`
 
 ### Upstream status
 
-This fix belongs upstream in `sound/hda/codecs/realtek/alc269.c`. The patch
-is a minimal, self-contained addition following the same pattern already used
-for other Lenovo models that share PCI SSIDs (e.g. `17aa:3847` shared between
-Yoga Pro 7 14IMH9 and Legion 7 16ACHG6, resolved via `HDA_CODEC_QUIRK` for
-codec SSID `17aa:38cf`). Submitting via `linux-sound@vger.kernel.org` with
-`alsa-devel` CC is the appropriate path.
+Submitted to `linux-sound@vger.kernel.org` on 30 April 2026
+(Cc: `alsa-devel@alsa-project.org`, Takashi Iwai).
+Message-Id: `<20260430191224.patch1-ramon@vanraaij.eu>`
+
+The patch is a minimal, self-contained addition following the same pattern
+already used for other Lenovo models that share PCI SSIDs (e.g. `17aa:3847`
+shared between Yoga Pro 7 14IMH9 and Legion 7 16ACHG6, resolved via
+`HDA_CODEC_QUIRK` for codec SSID `17aa:38cf`).
 
 ## Tested Environment
 
