@@ -1,0 +1,4 @@
+# Source files written by pre_build.sh when run manually from this directory.
+# In normal use these only exist inside the DKMS source tree (/usr/src/...).
+codecs/
+hda_common/
