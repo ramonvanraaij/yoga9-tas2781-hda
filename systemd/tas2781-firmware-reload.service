@@ -1,0 +1,42 @@
+[Unit]
+Description=TAS2781 HDA scodec DSP firmware reload
+# The BIOS initialises the TAS2781 amps in a state that prevents the
+# kernel from loading DSP firmware via request_firmware_nowait(). Simply
+# reloading the driver module is not sufficient — the hardware itself must
+# be power-cycled back to factory state. Removing the I2C controller PCI
+# device (0000:00:15.2) causes ACPI to gate its power rail (D3cold),
+# resetting all downstream I2C devices including the four TAS2781 amps.
+# A subsequent PCI rescan re-enumerates the controller, udevd rebinds
+# i2c_designware and triggers snd_hda_scodec_tas2781_i2c to probe the
+# freshly reset amps and load DSP calibration data successfully.
+#
+# Must complete before display-manager starts: yanking the PCI device
+# while WirePlumber holds an ALSA handle causes a SEGV in libasound
+# (snd_hctl_elem_get_interface). Running before display-manager ensures
+# PipeWire has not yet opened the device.
+After=sound.target
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+# Give the initial driver probe and failed firmware load attempt time to
+# complete before we remove the device beneath it.
+ExecStartPre=/bin/sleep 2
+# Remove the I2C controller PCI device. This tears down i2c-4 and all
+# child devices (i2c-TIAS2781:00), then ACPI power-gates the controller.
+ExecStart=/bin/bash -c 'echo 1 > /sys/bus/pci/devices/0000:00:15.2/remove'
+# Allow the hardware power-off to settle so the amps reset to factory state.
+ExecStart=/bin/sleep 2
+# Re-enumerate the I2C controller. udevd will rebind i2c_designware,
+# recreate i2c-4, and fire the snd_hda_scodec_tas2781_i2c modalias.
+ExecStart=/bin/bash -c 'echo 1 > /sys/bus/pci/rescan'
+# Belt-and-suspenders: explicitly load the codec module in case udevd
+# has not yet processed the new I2C device modalias.
+ExecStart=/bin/bash -c 'modprobe snd_hda_scodec_tas2781_i2c || true'
+# Allow udevd, i2c_designware, and snd_hda_scodec_tas2781_i2c to finish
+# binding and firmware load before display-manager (and PipeWire) start.
+ExecStart=/bin/sleep 5
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

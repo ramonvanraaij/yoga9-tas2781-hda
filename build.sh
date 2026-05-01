@@ -115,6 +115,12 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
     else
         warn "Module not found in DKMS; nothing to remove."
     fi
+
+    log "Removing boot firmware reload service ..."
+    sudo systemctl disable --now tas2781-firmware-reload.service 2>/dev/null || true
+    sudo rm -f /etc/systemd/system/tas2781-firmware-reload.service
+    sudo rm -f /usr/lib/systemd/system-sleep/tas2781-firmware-resume
+    sudo systemctl daemon-reload
     exit 0
 fi
 
@@ -133,6 +139,9 @@ if [[ -n "${DRY_RUN}" ]]; then
     log "Would copy Makefile, dkms.conf, pre_build.sh, yoga9-16imh9.patch"
     log "Would fetch zen-kernel sources from branch ${local_branch} during build"
     log "Would run: sudo dkms add/build/install ${MODULE_NAME}/${MODULE_VERSION}"
+    log "Would install systemd/tas2781-firmware-reload.service → /etc/systemd/system/"
+    log "Would install systemd/system-sleep/tas2781-firmware-resume → /usr/lib/systemd/system-sleep/"
+    log "Would run: sudo systemctl enable --now tas2781-firmware-reload.service"
     exit 0
 fi
 
@@ -169,8 +178,20 @@ sudo dkms build "${MODULE_NAME}/${MODULE_VERSION}"
 log "Installing DKMS module ..."
 sudo dkms install "${MODULE_NAME}/${MODULE_VERSION}"
 
+log "Installing boot firmware reload service ..."
+sudo install -m 644 "${SCRIPT_DIR}/systemd/tas2781-firmware-reload.service" \
+    /etc/systemd/system/tas2781-firmware-reload.service
+sudo install -m 755 "${SCRIPT_DIR}/systemd/system-sleep/tas2781-firmware-resume" \
+    /usr/lib/systemd/system-sleep/tas2781-firmware-resume
+sudo systemctl daemon-reload
+sudo systemctl enable --now tas2781-firmware-reload.service
+
 log ""
-log "Done! Reboot to load the patched module."
+log "Done! Reboot to load the patched module with the firmware fix."
 log "After reboot, verify with:"
 log "  dmesg | grep -i 'tas2781\|alc287\|38d6'"
 log "  aplay -l    (should show speakers)"
+log ""
+log "Optional — KDE Plasma autostart (Speaker Force Firmware Load):"
+log "  sudo install -m 755 ${SCRIPT_DIR}/autostart/tas2781-force-load.sh /usr/local/bin/"
+log "  cp ${SCRIPT_DIR}/autostart/tas2781-force-load.desktop ~/.config/autostart/"

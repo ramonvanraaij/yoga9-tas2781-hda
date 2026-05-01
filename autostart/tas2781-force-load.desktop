@@ -1,0 +1,5 @@
+[Desktop Entry]
+Exec=/usr/local/bin/tas2781-force-load.sh
+Name=TAS2781 Force Firmware Load
+Type=Application
+X-KDE-Autostart-after=panel

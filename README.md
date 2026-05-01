@@ -106,6 +106,68 @@ merged tag `v7.0.2`). It applies cleanly to the full Linus tree at v7.0.2 as
 well, since the realtek codec files were not modified between v7.0.2 and the
 zen merge commit.
 
+## Secondary Issue: Boot-Time Firmware Loading
+
+Even with the codec quirk fix applied, the TAS2781 DSP firmware may silently
+fail to load at **cold boot**, leaving the speakers at ~10–15% volume. After
+**S3 suspend/resume** the firmware loads correctly.
+
+### Root cause
+
+The BIOS initialises the TAS2781 amplifiers in a hardware state that is
+incompatible with the kernel's `request_firmware_nowait()` path in
+`tas2781_hda_comp_bind()`. No error is logged; the driver continues without
+calibration data. A simple driver module reload (`modprobe -r` / `modprobe`)
+is not sufficient — the hardware itself must be power-cycled back to factory
+state.
+
+Removing the Intel I2C controller PCI device (`0000:00:15.2`) causes ACPI to
+gate its power rail (D3cold), which resets all downstream I2C devices
+including the four TAS2781 amplifiers. A subsequent PCI rescan re-enumerates
+the controller, udevd rebinds `i2c_designware`, and
+`snd_hda_scodec_tas2781_i2c` probes the freshly reset amplifiers and loads
+DSP firmware successfully.
+
+This bug has been reported to the ALSA maintainers:
+[\[BUG\] snd\_hda\_scodec\_tas2781\_i2c: DSP firmware silently fails to load at cold boot](https://lore.kernel.org/linux-sound/20260501175633.bug1-ramon@vanraaij.eu/T/#u)
+
+### Fix: systemd boot service
+
+`build.sh` installs `systemd/tas2781-firmware-reload.service` to
+`/etc/systemd/system/` and enables it. The service runs after `sound.target`
+and **before** `display-manager.service` (before PipeWire opens the device):
+
+```
+ExecStartPre=/bin/sleep 2            # let initial driver probe complete
+ExecStart=echo 1 > .../0000:00:15.2/remove   # D3cold power-off
+ExecStart=/bin/sleep 2               # let hardware reset
+ExecStart=echo 1 > .../rescan        # re-enumerate I2C controller
+ExecStart=modprobe snd_hda_scodec_tas2781_i2c || true
+ExecStart=/bin/sleep 5               # wait for bind + firmware load
+```
+
+> **Important:** the service must run before PipeWire starts. Removing the
+> PCI device while WirePlumber has an active ALSA handle causes a SIGSEGV in
+> `snd_hctl_elem_get_interface` (libasound). This has been reported upstream:
+> [WirePlumber issue #943](https://gitlab.freedesktop.org/pipewire/wireplumber/-/work_items/943)
+
+### Fix: S3 resume sleep hook
+
+`build.sh` installs `systemd/system-sleep/tas2781-firmware-resume` to
+`/usr/lib/systemd/system-sleep/`. This hook fires on every post-resume event
+and reloads `snd_hda_scodec_tas2781_i2c` to restore DSP state after S3.
+
+### Optional: KDE Plasma autostart
+
+For KDE Plasma users, `autostart/tas2781-force-load.sh` polls for the
+`Speaker Force Firmware Load` ALSA control after session start and sets it,
+ensuring DSP calibration data is confirmed loaded once PipeWire has settled.
+
+```bash
+sudo install -m 755 autostart/tas2781-force-load.sh /usr/local/bin/
+cp autostart/tas2781-force-load.desktop ~/.config/autostart/
+```
+
 ## Implementation as a DKMS Module
 
 Because `snd-hda-codec-alc269` is an in-tree module, the simplest permanent
@@ -182,7 +244,8 @@ cd yoga9-tas2781-hda
 sudo reboot
 ```
 
-After reboot, test the speakers at full volume.
+`build.sh` installs both the DKMS codec module and the boot firmware reload
+service. After reboot, test the speakers at full volume.
 
 ## Manual Build Steps
 
@@ -320,14 +383,23 @@ use that fixup for the Yoga Pro 9 16IMH9 — the ACPI HID here is `TIAS2781`
 
 ### Upstream status
 
-Submitted to `linux-sound@vger.kernel.org` on 30 April 2026
-(Cc: `alsa-devel@alsa-project.org`, Takashi Iwai).
+**Codec quirk patch — accepted.**
+Submitted to `linux-sound@vger.kernel.org` on 30 April 2026 and accepted by
+Takashi Iwai on 1 May 2026.
 Message-Id: `<20260430191224.patch1-ramon@vanraaij.eu>`
 
-The patch is a minimal, self-contained addition following the same pattern
-already used for other Lenovo models that share PCI SSIDs (e.g. `17aa:3847`
-shared between Yoga Pro 7 14IMH9 and Legion 7 16ACHG6, resolved via
-`HDA_CODEC_QUIRK` for codec SSID `17aa:38cf`).
+Once the fix lands in a stable kernel release, this DKMS module will no
+longer be needed. Until then, it remains the only way to get correct speaker
+volume on this machine without patching the kernel yourself.
+
+**Boot firmware loading bug — reported.**
+Filed with the ALSA maintainers on 1 May 2026:
+[\[BUG\] snd\_hda\_scodec\_tas2781\_i2c: DSP firmware silently fails to load at cold boot](https://lore.kernel.org/linux-sound/20260501175633.bug1-ramon@vanraaij.eu/T/#u)
+(Cc: `alsa-devel@alsa-project.org`, Takashi Iwai, Shenghao Ding / TI)
+
+**WirePlumber hot-removal crash — reported.**
+Filed at PipeWire/WirePlumber on 1 May 2026:
+[WirePlumber issue #943 — SIGSEGV in snd_hctl_elem_get_interface when ALSA sound device is hot-removed](https://gitlab.freedesktop.org/pipewire/wireplumber/-/work_items/943)
 
 ## Tested Environment
 
