@@ -385,8 +385,8 @@ use that fixup for the Yoga Pro 9 16IMH9 — the ACPI HID here is `TIAS2781`
 
 **Codec quirk patch — accepted.**
 Submitted to `linux-sound@vger.kernel.org` on 30 April 2026 and accepted by
-Takashi Iwai on 1 May 2026.
-Message-Id: `<20260430191224.patch1-ramon@vanraaij.eu>`
+Takashi Iwai on 1 May 2026:
+[\[PATCH\] ALSA: hda/realtek: Add codec SSID quirk for Lenovo Yoga Pro 9 16IMH9](https://lore.kernel.org/linux-sound/20260430191224.patch1-ramon@vanraaij.eu/)
 
 Once the fix lands in a stable kernel release, this DKMS module will no
 longer be needed. Until then, it remains the only way to get correct speaker
