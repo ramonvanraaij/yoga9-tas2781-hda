@@ -552,7 +552,7 @@ use that fixup for the Yoga Pro 9 16IMH9 — the ACPI HID here is `TIAS2781`
 
 **Codec quirk patch — accepted, targeting 7.1.**
 Submitted to `linux-sound@vger.kernel.org` on 30 April 2026 and accepted by
-Takashi Iwai on 1 May 2026 (commit `56722cfb` in `tiwai/for-linus`):
+Takashi Iwai on 1 May 2026 (commit [`56722cfb`](https://github.com/tiwai/sound/commit/56722cfbb78d7eb41756cd78dc5192d08bd14f3d), branch `for-linus` of `tiwai/sound`):
 [\[PATCH\] ALSA: hda/realtek: Add codec SSID quirk for Lenovo Yoga Pro 9 16IMH9](https://lore.kernel.org/linux-sound/20260430191224.patch1-ramon@vanraaij.eu/)
 
 The patch missed the `sound-7.1-rc2` pull by one day and will likely land as
@@ -565,6 +565,11 @@ longer be needed.
 **Boot firmware loading bug — reported.**
 Filed with the ALSA maintainers on 1 May 2026:
 [\[BUG\] snd\_hda\_scodec\_tas2781\_i2c: DSP firmware silently fails to load at cold boot](https://lore.kernel.org/linux-sound/20260501175633.bug1-ramon@vanraaij.eu/T/#u)
+(Cc: `alsa-devel@alsa-project.org`, Takashi Iwai, Shenghao Ding / TI)
+
+**PCI I2C controller D3cold idle bug — reported.**
+Filed with the ALSA maintainers on 3 May 2026:
+[\[BUG\] snd\_hda\_scodec\_tas2781\_i2c: parent I2C controller enters D3cold during idle, erasing amp register state](https://lore.kernel.org/linux-sound/20260502230243.bug2-ramon@vanraaij.eu/T/#u)
 (Cc: `alsa-devel@alsa-project.org`, Takashi Iwai, Shenghao Ding / TI)
 
 **WirePlumber hot-removal crash — reported.**
