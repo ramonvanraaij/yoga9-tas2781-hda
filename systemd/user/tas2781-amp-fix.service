@@ -1,0 +1,17 @@
+[Unit]
+Description=TAS2781 speaker amp restore after WirePlumber start
+# PartOf ensures this unit stops whenever WirePlumber stops (crash or
+# intentional), so it is restarted in lock-step on each WirePlumber
+# restart - re-programming the amplifier registers every time.
+After=wireplumber.service
+PartOf=wireplumber.service
+
+[Service]
+Type=oneshot
+# Give WirePlumber time to open ALSA devices before programming the amps.
+ExecStartPre=/bin/sleep 5
+ExecStart=sudo /usr/local/bin/2pa-byps.sh
+
+[Install]
+# Pulled in automatically whenever wireplumber.service starts.
+WantedBy=wireplumber.service

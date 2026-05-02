@@ -1,25 +1,20 @@
 #!/usr/bin/env bash
 # tas2781-firmware-resume
 # =================================================================
-# TAS2781 DSP Firmware Reload on System Resume
+# TAS2781 Smart Amplifier Restore on System Resume
 #
 # Copyright (c) 2026 Rámon van Raaij
 # License: MIT
 # Author: Rámon van Raaij | Bluesky: @ramonvanraaij.nl | GitHub: https://github.com/ramonvanraaij | Website: https://ramon.vanraaij.eu
 #
-# Install at /usr/lib/systemd/system-sleep/tas2781-firmware-resume
-# (executable). systemd-sleep calls every file in that directory with
-# arguments ($1=pre|post, $2=suspend|hibernate|...) on each sleep cycle.
+# Installed as /usr/lib/systemd/system-sleep/tas2781-firmware-resume
+# by run_once_setup-tas2781-firmware-reload.sh.tmpl.
 #
-# The TAS2781 smart amplifiers lose their DSP firmware state during S3
-# system suspend. The kernel driver resume path does not reliably reload
-# the firmware. This hook reloads snd_hda_scodec_tas2781_i2c after every
-# resume, forcing a clean re-probe that restores full speaker volume.
-#
-# It performs the following actions:
-# 1. Checks that this is a post-resume event (exits silently on pre-suspend)
-# 2. Unbinds i2c-TIAS2781:00 from the driver if currently bound
-# 3. Removes and reloads snd_hda_scodec_tas2781_i2c
+# The TAS2781 smart amplifiers lose their register state during system
+# suspend. This hook re-initialises the amplifiers via I2C after every
+# resume (s2idle, S3, hibernate) by calling 2pa-byps.sh, which directly
+# programs the chip registers without touching the kernel driver binding.
+# This is safe to run while PipeWire / WirePlumber are resuming.
 # =================================================================
 
 # errexit intentionally omitted — sleep hooks must not abort mid-execution.
@@ -28,13 +23,8 @@ set -o nounset -o pipefail
 # $1 = pre|post, $2 = suspend|hibernate|hybrid-sleep|suspend-then-hibernate
 [[ "${1}" == "post" ]] || exit 0
 
-DRIVER_PATH="/sys/bus/i2c/drivers/tas2781-hda"
-DEVICE="i2c-TIAS2781:00"
+# Allow the I2C controller and platform drivers to settle after resume
+# before programming the amplifier registers.
+sleep 3
 
-# Unbind the device so the module reference count drops to zero.
-if [[ -e "${DRIVER_PATH}/${DEVICE}" ]]; then
-    echo "${DEVICE}" > "${DRIVER_PATH}/unbind" || true
-fi
-
-modprobe -r snd_hda_scodec_tas2781_i2c || true
-modprobe snd_hda_scodec_tas2781_i2c || true
+/usr/local/bin/2pa-byps.sh | logger -t tas2781-resume

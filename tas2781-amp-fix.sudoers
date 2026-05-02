@@ -1,0 +1,5 @@
+# Allow the login user to run the TAS2781 amp initialisation script as root
+# without a password. This is needed by the tas2781-amp-fix.service user unit,
+# which is triggered after each WirePlumber (re)start.
+# Replace YOUR_USERNAME with your actual username before installing.
+YOUR_USERNAME ALL=(root) NOPASSWD: /usr/local/bin/2pa-byps.sh

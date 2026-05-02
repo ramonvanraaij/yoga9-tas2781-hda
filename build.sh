@@ -121,6 +121,15 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
     sudo rm -f /etc/systemd/system/tas2781-firmware-reload.service
     sudo rm -f /usr/lib/systemd/system-sleep/tas2781-firmware-resume
     sudo systemctl daemon-reload
+
+    log "Removing runtime speaker fix ..."
+    systemctl --user disable --now tas2781-amp-fix.service 2>/dev/null || true
+    sudo rm -f /usr/local/bin/2pa-byps.sh
+    sudo rm -f /etc/sudoers.d/tas2781-speakers
+    sudo rm -f /etc/udev/rules.d/99-tas2781-i2c-ctrl.rules
+    sudo udevadm control --reload-rules
+    sudo rm -f /etc/modprobe.d/tas2781-blacklist.conf
+    sudo mkinitcpio -P
     exit 0
 fi
 
@@ -142,6 +151,10 @@ if [[ -n "${DRY_RUN}" ]]; then
     log "Would install systemd/tas2781-firmware-reload.service → /etc/systemd/system/"
     log "Would install systemd/system-sleep/tas2781-firmware-resume → /usr/lib/systemd/system-sleep/"
     log "Would run: sudo systemctl enable --now tas2781-firmware-reload.service"
+    log "Would install 2pa-byps.sh → /usr/local/bin/"
+    log "Would install sudoers fragment → /etc/sudoers.d/tas2781-speakers"
+    log "Would install udev rule → /etc/udev/rules.d/99-tas2781-i2c-ctrl.rules"
+    log "Would run: systemctl --user enable --now tas2781-amp-fix.service"
     exit 0
 fi
 
@@ -185,6 +198,39 @@ sudo install -m 755 "${SCRIPT_DIR}/systemd/system-sleep/tas2781-firmware-resume"
     /usr/lib/systemd/system-sleep/tas2781-firmware-resume
 sudo systemctl daemon-reload
 sudo systemctl enable --now tas2781-firmware-reload.service
+
+log "Installing runtime speaker fix (2pa-byps.sh) ..."
+sudo install -m 755 "${SCRIPT_DIR}/2pa-byps.sh" /usr/local/bin/2pa-byps.sh
+
+log "Installing sudoers fragment for user service ..."
+echo "${USER} ALL=(root) NOPASSWD: /usr/local/bin/2pa-byps.sh" \
+    | sudo tee /etc/sudoers.d/tas2781-speakers > /dev/null
+sudo chmod 440 /etc/sudoers.d/tas2781-speakers
+sudo visudo -cf /etc/sudoers.d/tas2781-speakers
+
+log "Installing udev rule to pin PCI I2C controller to always-on ..."
+sudo tee /etc/udev/rules.d/99-tas2781-i2c-ctrl.rules > /dev/null <<'EOF'
+# Keep the Intel DesignWare I2C controller that hosts the TAS2781 amplifiers
+# always powered. It defaults to runtime-PM=auto; when the display goes off
+# and the system enters deep idle the controller can enter D3cold, which cuts
+# the I2C bus power rail and erases all TAS2781 register state.
+ACTION=="add", SUBSYSTEM=="pci", ENV{PCI_SLOT_NAME}=="0000:00:15.2", \
+    ATTR{power/control}="on"
+EOF
+sudo udevadm control --reload-rules
+sudo udevadm trigger --subsystem-match=pci --attr-match=vendor=0x8086 \
+    --attr-match=device=0x7e7a 2>/dev/null || true
+
+log "Installing modprobe blacklist for snd_hda_scodec_tas2781_i2c ..."
+sudo install -m 644 "${SCRIPT_DIR}/tas2781-blacklist.conf" \
+    /etc/modprobe.d/tas2781-blacklist.conf
+
+log "Rebuilding initramfs (blacklist must be baked in to take effect at boot) ..."
+sudo mkinitcpio -P
+
+log "Enabling WirePlumber companion user service ..."
+systemctl --user daemon-reload
+systemctl --user enable --now tas2781-amp-fix.service
 
 log ""
 log "Done! Reboot to load the patched module with the firmware fix."
