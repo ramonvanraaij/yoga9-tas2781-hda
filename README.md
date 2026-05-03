@@ -1,7 +1,12 @@
 # TAS2781 HDA Codec Fix — Lenovo Yoga Pro 9 16IMH9
 
-Out-of-tree DKMS kernel module that fixes the built-in speaker volume on the
-**Lenovo Yoga Pro 9 16IMH9** under Linux kernel 7.x (zen).
+A collection of Linux audio fixes for the **Lenovo Yoga Pro 9 16IMH9** under
+Linux kernel 7.x (zen). Addresses three separate issues that leave the
+built-in speakers at ~10-15% of expected volume: a codec quirk collision
+(fixed via an out-of-tree DKMS module), a cold-boot firmware loading failure
+(worked around via a systemd service), and runtime register erasure caused by
+PCI controller D3cold power management (mitigated via a modprobe blacklist,
+udev rule, and I2C bypass script).
 
 ## The Problem
 
