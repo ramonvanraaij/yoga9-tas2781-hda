@@ -103,6 +103,16 @@ for arg in "$@"; do
     esac
 done
 
+# Must run as a regular user. The script invokes sudo internally where needed;
+# running it under sudo would resolve $HOME / $USER to root and silently install
+# the user service into /root/.config/systemd/user/, where it would never run.
+if [[ "${EUID}" -eq 0 ]]; then
+    err "Run as your regular user, not root."
+    err "The script invokes sudo for system-level steps; running under sudo would"
+    err "install the user service into /root/.config/systemd/user/."
+    exit 1
+fi
+
 KVER="$(uname -r)"
 
 # --- Uninstall path ---
@@ -124,6 +134,8 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
 
     log "Removing runtime speaker fix ..."
     systemctl --user disable --now tas2781-amp-fix.service 2>/dev/null || true
+    rm -f "${HOME}/.config/systemd/user/tas2781-amp-fix.service"
+    systemctl --user daemon-reload 2>/dev/null || true
     sudo rm -f /usr/local/bin/2pa-byps.sh
     sudo rm -f /etc/sudoers.d/tas2781-speakers
     sudo rm -f /etc/udev/rules.d/99-tas2781-i2c-ctrl.rules
@@ -154,6 +166,7 @@ if [[ -n "${DRY_RUN}" ]]; then
     log "Would install 2pa-byps.sh → /usr/local/bin/"
     log "Would install sudoers fragment → /etc/sudoers.d/tas2781-speakers"
     log "Would install udev rule → /etc/udev/rules.d/99-tas2781-i2c-ctrl.rules"
+    log "Would install systemd/user/tas2781-amp-fix.service → ${HOME}/.config/systemd/user/"
     log "Would run: systemctl --user enable --now tas2781-amp-fix.service"
     exit 0
 fi
@@ -228,7 +241,10 @@ sudo install -m 644 "${SCRIPT_DIR}/tas2781-blacklist.conf" \
 log "Rebuilding initramfs (blacklist must be baked in to take effect at boot) ..."
 sudo mkinitcpio -P
 
-log "Enabling WirePlumber companion user service ..."
+log "Installing WirePlumber companion user service ..."
+install -d -m 755 "${HOME}/.config/systemd/user"
+install -m 644 "${SCRIPT_DIR}/systemd/user/tas2781-amp-fix.service" \
+    "${HOME}/.config/systemd/user/tas2781-amp-fix.service"
 systemctl --user daemon-reload
 systemctl --user enable --now tas2781-amp-fix.service
 
