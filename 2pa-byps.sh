@@ -13,13 +13,13 @@
 # full speaker volume without requiring a PCI power-cycle or a module
 # reload, making it safe to run while PipeWire / WirePlumber are active.
 #
-# The I2C register sequence and multi-model bus detection were adapted from
-# the work of Maxim Raznatovski - all credit for the register values goes to him:
+# The I2C register sequence was adapted from the work of Maxim Raznatovski -
+# all credit for the register values goes to him:
 #   https://github.com/maximmaxim345/yoga_pro_9i_gen9_linux
 #
 # It performs the following actions:
 # 1. Loads the i2c-dev kernel module if not already present.
-# 2. Detects the correct Synopsys DesignWare I2C bus for the model.
+# 2. Resolves the TAS2781 I2C bus from the TIAS2781 ACPI HID sysfs node.
 # 3. Writes initialisation registers to each TAS2781 amplifier.
 #
 # Usage:
@@ -37,7 +37,7 @@ export TERM=linux
 
 # --- Configuration ---
 
-readonly ADAPTER_DESCRIPTION="Synopsys DesignWare I2C adapter"
+readonly TIAS_HID_NODE="/sys/bus/i2c/devices/i2c-TIAS2781:00"
 
 # --- Logging ---
 
@@ -52,25 +52,20 @@ log "Laptop model: ${laptop_model}"
 
 # --- I2C bus detection ---
 
-# find_i2c_bus: returns the bus number of the Nth DesignWare I2C adapter.
-# The 16IAH10 (Gen 10, 83L0) uses the 2nd adapter; all other supported
-# models use the 3rd adapter.
+# find_i2c_bus: returns the bus number that hosts the TAS2781 amplifiers.
+# Resolved from the TIAS2781 ACPI HID device's sysfs path, which always
+# points to the correct parent bus regardless of PCI/I2C enumeration order
+# (the previous index-based heuristic broke after boot resets that
+# renumbered the DesignWare adapters - see GitHub issue #1).
 find_i2c_bus() {
-    local bus_index=3
-    [[ "${laptop_model}" == "83L0" ]] && bus_index=2
-
-    local dw_count
-    dw_count=$(i2cdetect -l | grep -c "${ADAPTER_DESCRIPTION}")
-    if [[ "${dw_count}" -lt "${bus_index}" ]]; then
-        echo "Error: fewer than ${bus_index} DesignWare I2C adapters found (got ${dw_count})." >&2
+    local tias_path
+    tias_path=$(readlink -f "${TIAS_HID_NODE}" 2>/dev/null)
+    if [[ -z "${tias_path}" || ! -d "${tias_path}" ]]; then
+        echo "Error: TIAS2781 ACPI device not found at ${TIAS_HID_NODE}." >&2
         return 1
     fi
-
-    i2cdetect -l \
-        | grep "${ADAPTER_DESCRIPTION}" \
-        | awk '{print $1}' \
-        | sed 's/i2c-//' \
-        | sed -n "${bus_index}p"
+    # Parent of the i2c-TIAS2781:00 sysfs node is the i2c-N bus directory.
+    basename "$(dirname "${tias_path}")" | sed 's/^i2c-//'
 }
 
 i2c_bus=$(find_i2c_bus)

@@ -113,12 +113,15 @@ zen merge commit.
 
 ## Credits
 
-The I2C register initialisation sequence and multi-model bus detection in
-`2pa-byps.sh` were adapted from the work of
-**[Maxim Raznatovski](https://github.com/maximmaxim345)**:
+The I2C register initialisation sequence in `2pa-byps.sh` was adapted from
+the work of **[Maxim Raznatovski](https://github.com/maximmaxim345)**:
 - Repository: [yoga_pro_9i_gen9_linux](https://github.com/maximmaxim345/yoga_pro_9i_gen9_linux)
 
 All credit for the original register values goes to him.
+
+The ACPI HID-based I2C bus lookup that replaced the original index-based
+detection was contributed by [@0xEthamin](https://github.com/0xEthamin) via
+[issue #1](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/1).
 
 ---
 
