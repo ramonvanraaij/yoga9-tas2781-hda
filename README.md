@@ -343,9 +343,10 @@ initial install and on every subsequent kernel upgrade.
 /usr/src/snd-hda-codec-alc269-fix-1.0/
 ├── Makefile
 ├── dkms.conf
-├── pre_build.sh          ← DKMS PRE_BUILD hook; fetches sources before each build
-├── yoga9-16imh9.patch    ← the codec quirk fix applied by pre_build.sh
-├── codecs/               ← populated by pre_build.sh at build time
+├── pre_build.sh             ← DKMS PRE_BUILD hook; fetches sources before each build
+├── yoga9-16imh9.patch       ← upstream-accepted codec quirk fix for 17aa:38d6
+├── yoga9-16imh9-38d5.patch  ← follow-up extending the fix to the 17aa:38d5 variant
+├── codecs/                  ← populated by pre_build.sh at build time
 │   ├── realtek/
 │   │   ├── alc269.c        ← patched compilation unit
 │   │   └── realtek.h       ← includes generic.h, hda_component.h, hda_common headers
@@ -416,7 +417,8 @@ Copy the build scaffolding from the cloned repo into the DKMS source directory:
 
 ```bash
 sudo mkdir -p /usr/src/snd-hda-codec-alc269-fix-1.0
-sudo cp Makefile dkms.conf pre_build.sh yoga9-16imh9.patch \
+sudo cp Makefile dkms.conf pre_build.sh \
+    yoga9-16imh9.patch yoga9-16imh9-38d5.patch \
     /usr/src/snd-hda-codec-alc269-fix-1.0/
 sudo chmod +x /usr/src/snd-hda-codec-alc269-fix-1.0/pre_build.sh
 ```
@@ -458,7 +460,8 @@ modinfo snd-hda-codec-alc269 | grep filename
 
 # 2. Confirm the TAS2781 fixup was selected (no blank fixup name)
 dmesg | grep -i "picked fixup"
-# Expected: something containing "TAS2781" or no blank name for 17aa:38d6
+# Expected: a non-blank fixup name for the codec SSID
+# (17aa:38d6 on the maintainer's machine, 17aa:38d5 on the variant)
 
 # 3. Confirm the TAS2781 driver bound successfully
 ls -la /sys/bus/i2c/devices/i2c-TIAS2781:00/driver
@@ -486,10 +489,10 @@ sudo dkms status
 sudo cat /var/lib/dkms/snd-hda-codec-alc269-fix/1.0/$(uname -r)/x86_64/log/make.log
 ```
 
-The most likely failure cause is the patch no longer applying cleanly because
-the upstream quirk table was reorganised. In that case, update the patch
-context in `yoga9-16imh9.patch` to match the new upstream file, then
-reinstall:
+The most likely failure cause is one of the patches no longer applying cleanly
+because the upstream quirk table was reorganised. In that case, update the
+hunk context in `yoga9-16imh9.patch` (and `yoga9-16imh9-38d5.patch` if needed)
+to match the new upstream file, then reinstall:
 ```bash
 ./build.sh --uninstall
 ./build.sh
@@ -569,6 +572,12 @@ targets 7.1. This DKMS module remains necessary until zen 7.1 ships.
 
 Once the fix lands in a stable kernel release, this DKMS module will no
 longer be needed.
+
+**Codec SSID 17aa:38d5 follow-up — pending verification.**
+A second patch (`yoga9-16imh9-38d5.patch`) extending the same fixup to the
+`17aa:38d5` codec SSID variant is shipped in this DKMS module but not yet
+sent upstream, pending confirmation that the quirk fires correctly on
+that hardware ([issue #1](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/1)).
 
 **Boot firmware loading bug — reported.**
 Filed with the ALSA maintainers on 1 May 2026:

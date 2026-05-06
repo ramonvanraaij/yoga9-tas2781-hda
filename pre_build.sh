@@ -22,7 +22,8 @@
 #    "7.1.3-zen2-1-zen" → "7.1/main").
 # 2. Sparse-clones the zen-kernel repository to fetch only the required
 #    source files (alc269.c, realtek.h, helpers, and common headers).
-# 3. Applies yoga9-16imh9.patch to alc269.c.
+# 3. Applies the patch series to alc269.c (yoga9-16imh9.patch +
+#    yoga9-16imh9-38d5.patch).
 # 4. Places all files in the DKMS source tree for compilation.
 #
 # Usage:
@@ -41,8 +42,16 @@ KVER="${kernelver:-$(uname -r)}"
 # When called by DKMS the working directory is the DKMS source tree
 # (/usr/src/snd-hda-codec-alc269-fix-1.0/). BASH_SOURCE resolves there.
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PATCH_FILE="${SCRIPT_DIR}/yoga9-16imh9.patch"
 readonly ZEN_REPO="https://github.com/zen-kernel/zen-kernel.git"
+
+# Patches are applied in this order. The base patch is the upstream-accepted
+# fix for codec SSID 0x38d6 (commit 56722cfb in tiwai/sound for-linus). The
+# 38d5 patch is a follow-up adding the same fixup for the variant SSID
+# (reported via GitHub issue #1) and is not yet upstream.
+readonly PATCH_FILES=(
+    "${SCRIPT_DIR}/yoga9-16imh9.patch"
+    "${SCRIPT_DIR}/yoga9-16imh9-38d5.patch"
+)
 
 # Source files to fetch from the zen-kernel tree.
 readonly ZEN_PATHS=(
@@ -100,12 +109,15 @@ fetch_sources() {
     log "Fetched (branch ${branch}, commit $(git -C "${workdir}" rev-parse --short FETCH_HEAD))."
 }
 
-# Apply the patch to the fetched alc269.c.
-apply_patch() {
+# Apply the patch series to the fetched alc269.c, in declared order.
+apply_patches() {
     local workdir="${1}"
-    log "Applying patch ..."
-    patch -p1 -d "${workdir}" < "${PATCH_FILE}"
-    log "Patch applied."
+    local patch_file
+    for patch_file in "${PATCH_FILES[@]}"; do
+        log "Applying $(basename "${patch_file}") ..."
+        patch -p1 -d "${workdir}" < "${patch_file}"
+    done
+    log "Patches applied."
 }
 
 # Copy source files into the DKMS source tree with the layout the Makefile expects.
@@ -149,7 +161,7 @@ WORKDIR="$(mktemp -d)"
 trap 'rm -rf "${WORKDIR}"' EXIT
 
 fetch_sources "${ZEN_BRANCH}" "${WORKDIR}"
-apply_patch "${WORKDIR}"
+apply_patches "${WORKDIR}"
 populate_dkms_tree "${WORKDIR}"
 
 log "Sources ready."
