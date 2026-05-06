@@ -89,6 +89,19 @@ dmesg | grep -i "tas2781\|38d6"
 # Should show TAS2781 component binding and firmware load
 ```
 
+> **Note on the "blank fixup name" diagnostic:** the heuristic above only
+> works on kernels built with `CONFIG_SND_DEBUG_VERBOSE=y` (zen has it on,
+> Arch mainline `linux` has it off). When verbose is off, the kernel strips
+> the `name` field from `SND_PCI_QUIRK` / `HDA_CODEC_QUIRK` entries at
+> compile time and the log line shows a blank name *regardless of whether
+> the quirk matched*. On those kernels, look for `bound i2c-TIAS2781:00`
+> in dmesg instead - that line only appears when the quirk fired and the
+> TAS2781 I2C driver bound. Caveat: that confirmation requires
+> `snd_hda_scodec_tas2781_i2c` to be loadable; under the recommended setup
+> (Fix 1 blacklist) the binding is intentionally suppressed and the kernel
+> quirk firing is unobservable. That is fine - the runtime path
+> (`2pa-byps.sh`) is doing the work either way.
+
 ## The Fix
 
 A single `HDA_CODEC_QUIRK` entry added to the ALC287 quirk table in
@@ -458,14 +471,23 @@ After reboot, run the following checks:
 modinfo snd-hda-codec-alc269 | grep filename
 # Expected: /lib/modules/<kver>/updates/dkms/snd-hda-codec-alc269.ko.zst
 
-# 2. Confirm the TAS2781 fixup was selected (no blank fixup name)
+# 2. Confirm the TAS2781 fixup was selected (verbose kernels only)
 dmesg | grep -i "picked fixup"
-# Expected: a non-blank fixup name for the codec SSID
-# (17aa:38d6 on the maintainer's machine, 17aa:38d5 on the variant)
+# Expected on CONFIG_SND_DEBUG_VERBOSE=y kernels (zen): a non-blank fixup
+#   name for the codec SSID (17aa:38d6 on the maintainer's machine,
+#   17aa:38d5 on the variant).
+# On non-verbose kernels (Arch mainline linux), this name is stripped at
+#   compile time and is always blank, regardless of match. Skip this
+#   check on those kernels and rely on check 3 below.
 
-# 3. Confirm the TAS2781 driver bound successfully
+# 3. Confirm the TAS2781 driver bound successfully (only without Fix 1 blacklist)
 ls -la /sys/bus/i2c/devices/i2c-TIAS2781:00/driver
 # Expected: symlink to ../../../../bus/i2c/drivers/tas2781-hda
+# Under the recommended setup (Fix 1 blacklists snd_hda_scodec_tas2781_i2c)
+#   no driver will be bound here - that is intentional, the runtime path
+#   in 2pa-byps.sh does the work instead. Use this check only when
+#   verifying the kernel-side quirk in isolation (with the blacklist
+#   temporarily removed).
 
 # 4. Confirm firmware was loaded
 dmesg | grep -i "TAS2XXX38D6\|tas2781"
