@@ -595,12 +595,14 @@ targets 7.1. This DKMS module remains necessary until zen 7.1 ships.
 Once the fix lands in a stable kernel release, this DKMS module will no
 longer be needed.
 
-**Codec SSID 17aa:38d5 follow-up — submitted.**
-A second patch extending the same fixup to codec SSID `17aa:38d5` was
-submitted on 6 May 2026, after the variant was reported and verified on
-hardware by GitHub user [@0xEthamin](https://github.com/0xEthamin) via
-[issue #1](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/1):
+**Codec SSID 17aa:38d5 follow-up — accepted, targeting 7.1.**
+Submitted to `linux-sound@vger.kernel.org` on 6 May 2026 and accepted by
+Takashi Iwai on 7 May 2026 (commit [`91892231`](https://github.com/tiwai/sound/commit/91892231ae5e638326e7eaa0174de86fac9aa5fd), branch `for-linus` of `tiwai/sound`):
 [\[PATCH\] ALSA: hda/realtek: Add codec SSID quirk for Lenovo Yoga Pro 9 16IMH9 (17aa:38d5)](https://lore.kernel.org/linux-sound/20260506183118.patch1-ramon@vanraaij.eu/)
+
+The variant was reported and verified on hardware by GitHub user
+[@0xEthamin](https://github.com/0xEthamin) via
+[issue #1](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/1).
 
 **Boot firmware loading bug — reported.**
 Filed with the ALSA maintainers on 1 May 2026:
