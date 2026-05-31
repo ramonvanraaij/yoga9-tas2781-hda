@@ -583,17 +583,17 @@ use that fixup for the Yoga Pro 9 16IMH9 — the ACPI HID here is `TIAS2781`
 
 ### Upstream status
 
-**Codec quirk patch — accepted, targeting 7.1.**
+**Codec quirk patch — merged for 7.1, stable backport queued.**
 Submitted to `linux-sound@vger.kernel.org` on 30 April 2026 and accepted by
 Takashi Iwai on 1 May 2026 (commit [`56722cfb`](https://github.com/tiwai/sound/commit/56722cfbb78d7eb41756cd78dc5192d08bd14f3d), branch `for-linus` of `tiwai/sound`):
 [\[PATCH\] ALSA: hda/realtek: Add codec SSID quirk for Lenovo Yoga Pro 9 16IMH9](https://lore.kernel.org/linux-sound/20260430191224.patch1-ramon@vanraaij.eu/)
 
-The patch missed the `sound-7.1-rc2` pull by one day and will likely land as
-`sound-7.1-rc3`. It is **not** in zen 7.0.x and will not be backported; it
-targets 7.1. This DKMS module remains necessary until zen 7.1 ships.
-
-Once the fix lands in a stable kernel release, this DKMS module will no
-longer be needed.
+It is in mainline for 7.1, and was also selected by AUTOSEL for stable
+backport to 7.0.y and 6.18.y (proposed 11 May 2026, re-proposed 20 May 2026).
+As of this writing it is still in the stable review queue and has not yet
+shipped in a released 7.0.y point kernel. Once it lands in a 7.0.y stable
+release, zen 7.0.x will carry it and the codec-quirk component of this module
+becomes unnecessary on zen 7.0.x.
 
 **Codec SSID 17aa:38d5 follow-up — accepted, targeting 7.1.**
 Submitted to `linux-sound@vger.kernel.org` on 6 May 2026 and accepted by
