@@ -23,7 +23,8 @@
 # 2. Sparse-clones the zen-kernel repository to fetch only the required
 #    source files (alc269.c, realtek.h, helpers, and common headers).
 # 3. Applies the patch series to alc269.c (yoga9-16imh9.patch +
-#    yoga9-16imh9-38d5.patch).
+#    yoga9-16imh9-38d5.patch), skipping any patch whose quirk is already
+#    present in the source (e.g. after the fix reaches zen via stable backport).
 # 4. Places all files in the DKMS source tree for compilation.
 #
 # Usage:
@@ -48,6 +49,11 @@ readonly ZEN_REPO="https://github.com/zen-kernel/zen-kernel.git"
 # fix for codec SSID 0x38d6 (commit 56722cfb in tiwai/sound for-linus). The
 # 38d5 patch is a follow-up adding the same fixup for the variant SSID
 # (reported via GitHub issue #1) and is not yet upstream.
+#
+# Invariant: each entry must add exactly one HDA_CODEC_QUIRK line and nothing
+# else functional. The skip-if-already-present logic in apply_patches keys off
+# those quirk lines; a patch that also carried other edits would be skipped
+# wholesale (dropping the other edits) once its quirk landed upstream.
 readonly PATCH_FILES=(
     "${SCRIPT_DIR}/yoga9-16imh9.patch"
     "${SCRIPT_DIR}/yoga9-16imh9-38d5.patch"
@@ -109,15 +115,63 @@ fetch_sources() {
     log "Fetched (branch ${branch}, commit $(git -C "${workdir}" rev-parse --short FETCH_HEAD))."
 }
 
-# Apply the patch series to the fetched alc269.c, in declared order.
+# quirk_already_present: returns 0 if every HDA_CODEC_QUIRK line that the given
+# patch would add is already present in the fetched alc269.c.
+#
+# This lets apply_patches skip a patch whose quirk has since been merged
+# upstream - e.g. once the codec SSID quirk reaches zen 7.0.x via the stable
+# backport, the fetched source already contains it and the patch would no
+# longer apply. The check matches on the functional HDA_CODEC_QUIRK line only,
+# so it tolerates cosmetic differences such as a reworded surrounding comment.
+quirk_already_present() {
+    local workdir="${1}"
+    local patch_file="${2}"
+    local target="${workdir}/sound/hda/codecs/realtek/alc269.c"
+    [[ -f "${target}" ]] || return 1
+
+    # Whitespace-squeezed view of the target for tolerant substring matching
+    # (newlines collapse to spaces, so each quirk line is matched in isolation).
+    local squeezed_target
+    squeezed_target=$(tr -s '[:space:]' ' ' < "${target}")
+
+    local line norm found=0
+    while IFS= read -r line; do
+        found=1
+        norm=$(printf '%s' "${line}" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+        case "${squeezed_target}" in
+            *"${norm}"*) ;;   # this quirk line is present; keep checking
+            *) return 1 ;;    # at least one quirk line missing -> not fully present
+        esac
+    done < <(grep -E '^\+[[:space:]]*HDA_CODEC_QUIRK' "${patch_file}" | sed 's/^\+//')
+
+    # Only report "already present" when the patch actually adds quirk lines.
+    [[ "${found}" -eq 1 ]]
+}
+
+# Apply the patch series to the fetched alc269.c, in declared order. A patch
+# whose quirk is already in the source (merged upstream) is skipped rather than
+# failing the build; a genuine context mismatch still aborts.
+#
+# GNU patch is assumed (DKMS on Arch); -N makes an already-applied patch a
+# silent non-interactive skip, and -F0 forbids fuzz so a genuinely drifted hunk
+# fails the dry-run and routes to the abort branch instead of applying offset.
 apply_patches() {
     local workdir="${1}"
-    local patch_file
+    local patch_file name
     for patch_file in "${PATCH_FILES[@]}"; do
-        log "Applying $(basename "${patch_file}") ..."
-        patch -p1 -d "${workdir}" < "${patch_file}"
+        name=$(basename "${patch_file}")
+        if patch -p1 -N -F0 --dry-run -d "${workdir}" < "${patch_file}" >/dev/null 2>&1; then
+            log "Applying ${name} ..."
+            patch -p1 -N -F0 -d "${workdir}" < "${patch_file}"
+        elif quirk_already_present "${workdir}" "${patch_file}"; then
+            log "Skipping ${name} - quirk already present in source (merged upstream)."
+        else
+            err "Patch ${name} did not apply and its quirk is absent from the source."
+            err "The upstream quirk table likely changed; update the patch hunk context."
+            exit 1
+        fi
     done
-    log "Patches applied."
+    log "Patch series processed."
 }
 
 # Copy source files into the DKMS source tree with the layout the Makefile expects.
