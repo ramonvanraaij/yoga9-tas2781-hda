@@ -178,9 +178,11 @@ ExecStart=modprobe snd_hda_scodec_tas2781_i2c || true
 ExecStart=/bin/sleep 5               # wait for bind + firmware load
 ```
 
-> **Important:** the service must run before PipeWire starts. Removing the
-> PCI device while WirePlumber has an active ALSA handle causes a SIGSEGV in
-> `snd_hctl_elem_get_interface` (libasound). This has been reported upstream:
+> **Important:** the service must run before PipeWire starts. Power-cycling the
+> PCI device (remove + rescan) while WirePlumber has the card open crashes it
+> with a SIGSEGV in `snd_hctl_elem_get_interface` (libasound); the crash fires
+> when the re-probe re-adds an ALSA control, not on the removal itself. Root
+> cause now identified and a tested fix posted upstream:
 > [PipeWire issue #5255](https://gitlab.freedesktop.org/pipewire/pipewire/-/work_items/5255)
 
 ### Fix: sleep hook
@@ -614,9 +616,18 @@ Filed with the ALSA maintainers on 3 May 2026:
 [\[BUG\] snd\_hda\_scodec\_tas2781\_i2c: parent I2C controller enters D3cold during idle, erasing amp register state](https://lore.kernel.org/linux-sound/20260502230243.bug2-ramon@vanraaij.eu/T/#u)
 (Cc: `alsa-devel@alsa-project.org`, Takashi Iwai, Shenghao Ding / TI)
 
-**WirePlumber hot-removal crash — reported.**
+**WirePlumber hot-removal crash — root cause identified, fix posted.**
 Filed at PipeWire/WirePlumber on 1 May 2026, moved to the PipeWire tracker:
 [PipeWire issue #5255 — SIGSEGV in snd_hctl_elem_get_interface when ALSA sound device is hot-removed](https://gitlab.freedesktop.org/pipewire/pipewire/-/work_items/5255)
+
+Root-caused on 1 June 2026: the ACP mixer code (vendored from PulseAudio) handles
+a control removal by nulling the mixer element's private hctl pointer and
+detaching it, but never calls `snd_mixer_elem_remove()`, so the emptied element
+lingers in the mixer's element list with a NULL slot. The next control add makes
+`pa_alsa_mixer_find()` dereference that NULL slot and crash. A fix (remove the
+element once its last hctl element is detached) was built against PipeWire 1.6.6,
+verified on hardware, and posted to the issue. The same fix also needs to land in
+PulseAudio, since PipeWire periodically re-syncs the ACP code from there.
 
 ## Tested Environment
 
