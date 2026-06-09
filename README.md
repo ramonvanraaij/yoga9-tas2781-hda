@@ -593,11 +593,12 @@ Takashi Iwai on 1 May 2026 (commit [`56722cfb`](https://github.com/tiwai/sound/c
 It is in mainline for 7.1, and was also selected by AUTOSEL for stable
 backport to 7.0.y and 6.18.y (proposed 11 May 2026, re-proposed 20 May 2026).
 As of this writing it is still in the stable review queue and has not yet
-shipped in a released 7.0.y point kernel. Once it lands in a 7.0.y stable
+shipped in a released 7.0.y point kernel (verified 9 June 2026: absent from
+7.0.11 and 6.18.34). Once it lands in a 7.0.y stable
 release, zen 7.0.x will carry it and the codec-quirk component of this module
 becomes unnecessary on zen 7.0.x.
 
-**Codec SSID 17aa:38d5 follow-up — accepted, targeting 7.1.**
+**Codec SSID 17aa:38d5 follow-up — merged for 7.1.**
 Submitted to `linux-sound@vger.kernel.org` on 6 May 2026 and accepted by
 Takashi Iwai on 7 May 2026 (commit [`91892231`](https://github.com/tiwai/sound/commit/91892231ae5e638326e7eaa0174de86fac9aa5fd), branch `for-linus` of `tiwai/sound`):
 [\[PATCH\] ALSA: hda/realtek: Add codec SSID quirk for Lenovo Yoga Pro 9 16IMH9 (17aa:38d5)](https://lore.kernel.org/linux-sound/20260506183118.patch1-ramon@vanraaij.eu/)
