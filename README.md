@@ -178,11 +178,11 @@ ExecStart=modprobe snd_hda_scodec_tas2781_i2c || true
 ExecStart=/bin/sleep 5               # wait for bind + firmware load
 ```
 
-> **Important:** the service must run before PipeWire starts. Power-cycling the
-> PCI device (remove + rescan) while WirePlumber has the card open crashes it
-> with a SIGSEGV in `snd_hctl_elem_get_interface` (libasound); the crash fires
-> when the re-probe re-adds an ALSA control, not on the removal itself. Root
-> cause now identified and a tested fix posted upstream:
+> **Important:** the service must run before PipeWire starts. On PipeWire before
+> the #5255 fix, power-cycling the PCI device (remove + rescan) while WirePlumber
+> has the card open crashes it with a SIGSEGV in `snd_hctl_elem_get_interface`
+> (libasound); the crash fires when the re-probe re-adds an ALSA control, not on
+> the removal itself. Fixed upstream:
 > [PipeWire issue #5255](https://gitlab.freedesktop.org/pipewire/pipewire/-/work_items/5255)
 
 ### Fix: sleep hook
@@ -616,7 +616,7 @@ Filed with the ALSA maintainers on 3 May 2026:
 [\[BUG\] snd\_hda\_scodec\_tas2781\_i2c: parent I2C controller enters D3cold during idle, erasing amp register state](https://lore.kernel.org/linux-sound/20260502230243.bug2-ramon@vanraaij.eu/T/#u)
 (Cc: `alsa-devel@alsa-project.org`, Takashi Iwai, Shenghao Ding / TI)
 
-**WirePlumber hot-removal crash — root cause identified, fix posted.**
+**WirePlumber hot-removal crash — fixed upstream.**
 Filed at PipeWire/WirePlumber on 1 May 2026, moved to the PipeWire tracker:
 [PipeWire issue #5255 — SIGSEGV in snd_hctl_elem_get_interface when ALSA sound device is hot-removed](https://gitlab.freedesktop.org/pipewire/pipewire/-/work_items/5255)
 
@@ -624,10 +624,17 @@ Root-caused on 1 June 2026: the ACP mixer code (vendored from PulseAudio) handle
 a control removal by nulling the mixer element's private hctl pointer and
 detaching it, but never calls `snd_mixer_elem_remove()`, so the emptied element
 lingers in the mixer's element list with a NULL slot. The next control add makes
-`pa_alsa_mixer_find()` dereference that NULL slot and crash. A fix (remove the
-element once its last hctl element is detached) was built against PipeWire 1.6.6,
-verified on hardware, and posted to the issue. The same fix also needs to land in
-PulseAudio, since PipeWire periodically re-syncs the ACP code from there.
+`pa_alsa_mixer_find()` dereference that NULL slot and crash. A fix was built
+against PipeWire 1.6.6, verified on hardware, and posted to the issue; alsa-lib
+author Jaroslav Kysela confirmed the diagnosis.
+
+Fixed on 9 June 2026 by Wim Taymans (commit
+[`25203c52`](https://gitlab.freedesktop.org/pipewire/pipewire/-/commit/25203c5293040c4f3b248293759c3df77dd78f43),
+"acp: avoid segfault when removing a card"), which swaps the
+`snd_mixer_elem_detach()` in the remove branch for `snd_mixer_elem_remove()` -
+that detaches the element and unlinks it from the mixer in one step. The same
+issue still exists in PulseAudio's copy of the ACP code and remains to be fixed
+there.
 
 ## Tested Environment
 
