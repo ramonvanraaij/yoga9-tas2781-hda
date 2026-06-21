@@ -585,20 +585,22 @@ use that fixup for the Yoga Pro 9 16IMH9 — the ACPI HID here is `TIAS2781`
 
 ### Upstream status
 
-**Codec quirk patch — merged for 7.1, stable backport queued.**
+**Codec quirk patch - released in 7.1; stable backport still pending.**
 Submitted to `linux-sound@vger.kernel.org` on 30 April 2026 and accepted by
 Takashi Iwai on 1 May 2026 (commit [`56722cfb`](https://github.com/tiwai/sound/commit/56722cfbb78d7eb41756cd78dc5192d08bd14f3d), branch `for-linus` of `tiwai/sound`):
 [\[PATCH\] ALSA: hda/realtek: Add codec SSID quirk for Lenovo Yoga Pro 9 16IMH9](https://lore.kernel.org/linux-sound/20260430191224.patch1-ramon@vanraaij.eu/)
 
-It is in mainline for 7.1, and was also selected by AUTOSEL for stable
-backport to 7.0.y and 6.18.y (proposed 11 May 2026, re-proposed 20 May 2026).
-As of this writing it is still in the stable review queue and has not yet
-shipped in a released 7.0.y point kernel (verified 9 June 2026: absent from
-7.0.11 and 6.18.34). Once it lands in a 7.0.y stable
-release, zen 7.0.x will carry it and the codec-quirk component of this module
-becomes unnecessary on zen 7.0.x.
+Linux **7.1 was released on 14 June 2026** carrying this quirk (and the
+17aa:38d5 follow-up below), so the codec-quirk component of this module is
+unnecessary on any 7.1.x kernel, including zen 7.1.x. The patch was also
+selected by AUTOSEL for stable backport to 7.0.y and 6.18.y (proposed 11 May
+2026, re-proposed 20 May 2026), but as of 21 June 2026 it has **not** yet
+shipped in a released stable point kernel: verified absent from 7.0.13 and
+6.18.36 (both released 19 June 2026). Once it lands in a 7.0.y stable release,
+zen 7.0.x will carry it and the codec-quirk component becomes unnecessary
+there too.
 
-**Codec SSID 17aa:38d5 follow-up — merged for 7.1.**
+**Codec SSID 17aa:38d5 follow-up - released in 7.1.**
 Submitted to `linux-sound@vger.kernel.org` on 6 May 2026 and accepted by
 Takashi Iwai on 7 May 2026 (commit [`91892231`](https://github.com/tiwai/sound/commit/91892231ae5e638326e7eaa0174de86fac9aa5fd), branch `for-linus` of `tiwai/sound`):
 [\[PATCH\] ALSA: hda/realtek: Add codec SSID quirk for Lenovo Yoga Pro 9 16IMH9 (17aa:38d5)](https://lore.kernel.org/linux-sound/20260506183118.patch1-ramon@vanraaij.eu/)
