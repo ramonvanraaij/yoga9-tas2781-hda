@@ -90,8 +90,9 @@ dmesg | grep -i "tas2781\|38d6"
 ```
 
 > **Note on the "blank fixup name" diagnostic:** the heuristic above only
-> works on kernels built with `CONFIG_SND_DEBUG_VERBOSE=y` (zen has it on,
-> Arch mainline `linux` has it off). When verbose is off, the kernel strips
+> works on kernels built with `CONFIG_SND_DEBUG_VERBOSE=y`. Current `linux-zen`
+> and stock Arch `linux` both build with it off (verified on zen 7.0.14 and
+> 7.1.2), so the kernel strips
 > the `name` field from `SND_PCI_QUIRK` / `HDA_CODEC_QUIRK` entries at
 > compile time and the log line shows a blank name *regardless of whether
 > the quirk matched*. On those kernels, look for `bound i2c-TIAS2781:00`
@@ -475,10 +476,10 @@ modinfo snd-hda-codec-alc269 | grep filename
 
 # 2. Confirm the TAS2781 fixup was selected (verbose kernels only)
 dmesg | grep -i "picked fixup"
-# Expected on CONFIG_SND_DEBUG_VERBOSE=y kernels (zen): a non-blank fixup
+# Expected only on CONFIG_SND_DEBUG_VERBOSE=y kernels: a non-blank fixup
 #   name for the codec SSID (17aa:38d6 on the maintainer's machine,
 #   17aa:38d5 on the variant).
-# On non-verbose kernels (Arch mainline linux), this name is stripped at
+# Current linux-zen and Arch linux both build with it off, so it is stripped at
 #   compile time and is always blank, regardless of match. Skip this
 #   check on those kernels and rely on check 3 below.
 
@@ -594,9 +595,9 @@ Linux **7.1 was released on 14 June 2026** carrying this quirk (and the
 17aa:38d5 follow-up below), so the codec-quirk component of this module is
 unnecessary on any 7.1.x kernel, including zen 7.1.x. The patch was also
 selected by AUTOSEL for stable backport to 7.0.y and 6.18.y (proposed 11 May
-2026, re-proposed 20 May 2026), but as of 21 June 2026 it has **not** yet
-shipped in a released stable point kernel: verified absent from 7.0.13 and
-6.18.36 (both released 19 June 2026). Once it lands in a 7.0.y stable release,
+2026, re-proposed 20 May 2026), but as of 6 July 2026 it has **not** yet
+shipped in a released stable point kernel: verified absent from 7.0.14 and
+6.18.38. Once it lands in a 7.0.y stable release,
 zen 7.0.x will carry it and the codec-quirk component becomes unnecessary
 there too.
 
