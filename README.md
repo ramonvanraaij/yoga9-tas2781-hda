@@ -1,4 +1,9 @@
-# TAS2781 HDA Codec Fix — Lenovo Yoga Pro 9 16IMH9
+# 🔊 yoga9-tas2781-hda: TAS2781 HDA Codec Fix for the Lenovo Yoga Pro 9 16IMH9
+
+[![Arch Linux](https://img.shields.io/badge/Arch%20Linux-linux--zen%207.x-1793d1?logo=archlinux&logoColor=white&style=flat-square)](https://archlinux.org)
+[![Upstream](https://img.shields.io/badge/Upstream-merged%20in%20Linux%207.1-success?style=flat-square)](https://lore.kernel.org/linux-sound/20260430191224.patch1-ramon@vanraaij.eu/)
+[![DKMS](https://img.shields.io/badge/DKMS-snd--hda--codec--alc269--fix-blue?style=flat-square)](https://github.com/dell/dkms)
+[![License](https://img.shields.io/badge/License-BSD--3--Clause-blue?style=flat-square)](LICENSE.md)
 
 A collection of Linux audio fixes for the **Lenovo Yoga Pro 9 16IMH9** under
 Linux kernel 7.x (zen). Addresses three separate issues that leave the
@@ -8,39 +13,54 @@ built-in speakers at ~10-15% of expected volume: a codec quirk collision
 PCI controller D3cold power management (mitigated via a modprobe blacklist,
 udev rule, and I2C bypass script).
 
-## The Problem
+---
 
-After booting into Linux, the built-in speakers produce very low volume —
+## 🚀 Overview
+
+### ✨ Key Fixes
+*   **🧩 Codec quirk collision:** an out-of-tree DKMS module adds the missing `HDA_CODEC_QUIRK` for codec SSID `17aa:38d6`, resolving the PCI SSID collision with the Legion S7 15IMH05; **merged upstream in Linux 7.1**.
+*   **🥶 Cold-boot firmware failure:** a systemd boot service power-cycles the I2C controller (D3cold) so the TAS2781 DSP firmware loads reliably.
+*   **🔇 Runtime volume loss:** a modprobe blacklist, an always-on udev rule, and the `2pa-byps.sh` I2C bypass script (run as a WirePlumber companion service) keep the amp registers programmed.
+*   **⬆️ Upstreamed:** two quirk patches accepted into Linux 7.1, two kernel bugs reported to the ALSA maintainers, and a WirePlumber crash root-caused and fixed upstream in PipeWire.
+*   **⚙️ One-shot install:** `./build.sh` sets up everything (DKMS module, services, blacklist, udev rule).
+
+---
+
+## 🐛 The Problem
+
+After booting into Linux, the built-in speakers produce very low volume -
 roughly 10-15% of the expected output even at 100% system volume. The TI
 TAS2781 smart amplifiers are powered but their DSP firmware is never loaded.
 
-### Hardware
+### 🖥️ Hardware
 
 | Component | Details |
 |---|---|
-| Machine | Lenovo Yoga Pro 9 16IMH9 |
-| Board SSID | `83DN` |
-| Audio codec | Realtek ALC287 |
-| Codec subsystem ID | `17aa:38d6` |
-| PCI audio device subsystem ID | `17aa:3811` |
-| Smart amplifiers | 2× TI TAS2781 (ACPI HID: `TIAS2781`) |
-| Driver stack | SOF (Sound Open Firmware) → snd-hda-codec-alc269 → snd-hda-scodec-tas2781-i2c |
+| **Machine** | Lenovo Yoga Pro 9 16IMH9 |
+| **Board SSID** | `83DN` |
+| **Audio codec** | Realtek ALC287 |
+| **Codec subsystem ID** | `17aa:38d6` |
+| **PCI audio device subsystem ID** | `17aa:3811` |
+| **Smart amplifiers** | 2x TI TAS2781 (ACPI HID: `TIAS2781`) |
+| **Driver stack** | SOF (Sound Open Firmware) -> snd-hda-codec-alc269 -> snd-hda-scodec-tas2781-i2c |
 
-## Root Cause Analysis
+---
+
+## 🔬 Root Cause Analysis
 
 The Linux HDA codec driver (`snd-hda-codec-alc269`) uses two independent
 quirk lookup mechanisms to select the hardware-specific fixup:
 
-1. **`SND_PCI_QUIRK`** — matches the *PCI device* subsystem vendor:device ID
-   (read from `lspci -v`).
-2. **`HDA_CODEC_QUIRK`** — matches the *codec's own* subsystem ID
-   (read from `/proc/asound/card0/codec#0`). This is checked *after* the PCI
-   lookup and overrides it.
+1.  **`SND_PCI_QUIRK`** - matches the *PCI device* subsystem vendor:device ID
+    (read from `lspci -v`).
+2.  **`HDA_CODEC_QUIRK`** - matches the *codec's own* subsystem ID
+    (read from `/proc/asound/card0/codec#0`). This is checked *after* the PCI
+    lookup and overrides it.
 
-### The Collision
+### 💥 The Collision
 
 The Yoga Pro 9 16IMH9's PCI audio device subsystem ID (`17aa:3811`) is shared
-with the **Legion S7 15IMH05** gaming laptop. In kernel ≥ 7.0, the quirk table
+with the **Legion S7 15IMH05** gaming laptop. In kernel >= 7.0, the quirk table
 contains:
 
 ```c
@@ -52,9 +72,9 @@ This makes the driver apply the Legion speakers fixup on the Yoga Pro 9, which
 does not bind the TAS2781 amplifiers at all.
 
 The codec subsystem ID (`17aa:38d6`) is unique to the Yoga Pro 9 16IMH9 and
-has **no `HDA_CODEC_QUIRK` entry** — so nothing overrides the wrong PCI match.
+has **no `HDA_CODEC_QUIRK` entry** - so nothing overrides the wrong PCI match.
 
-### What the fixup needs to do
+### 🎯 What the fixup needs to do
 
 The correct fixup for this machine is `ALC287_FIXUP_TAS2781_I2C`, which calls
 `tas2781_fixup_tias_i2c`. That function registers the two TAS2781 amplifiers
@@ -68,13 +88,13 @@ When the HDA component handshake completes, the TAS2781 I2C driver loads the
 DSP firmware from `/lib/firmware/ti/audio/tas2781/TAS2XXX38D6.bin` and the
 speakers produce correct output.
 
-### Confirming the diagnosis
+### 🩺 Confirming the diagnosis
 
 ```bash
-# Codec subsystem ID — should be 17aa:38d6
+# Codec subsystem ID - should be 17aa:38d6
 grep -i "subsystem id" /proc/asound/card0/codec#0
 
-# TAS2781 I2C device — driver link should exist
+# TAS2781 I2C device - driver link should exist
 ls -la /sys/bus/i2c/devices/i2c-TIAS2781:00/driver
 
 # Firmware file must exist
@@ -82,7 +102,7 @@ ls /lib/firmware/ti/audio/tas2781/TAS2XXX38D6.bin*
 
 # After boot WITHOUT the fix: fixup name is blank (no match)
 dmesg | grep -i "picked fixup.*38d6"
-# Output: "picked fixup  for codec SSID 17aa:38d6"  ← empty fixup name = wrong match
+# Output: "picked fixup  for codec SSID 17aa:38d6"  <- empty fixup name = wrong match
 
 # After boot WITH the fix:
 dmesg | grep -i "tas2781\|38d6"
@@ -103,7 +123,9 @@ dmesg | grep -i "tas2781\|38d6"
 > quirk firing is unobservable. That is fine - the runtime path
 > (`2pa-byps.sh`) is doing the work either way.
 
-## The Fix
+---
+
+## 🩹 The Fix
 
 A single `HDA_CODEC_QUIRK` entry added to the ALC287 quirk table in
 `sound/hda/codecs/realtek/alc269.c`, immediately before the conflicting Legion
@@ -125,33 +147,21 @@ merged tag `v7.0.2`). It applies cleanly to the full Linus tree at v7.0.2 as
 well, since the realtek codec files were not modified between v7.0.2 and the
 zen merge commit.
 
-## Credits
-
-The I2C register initialisation sequence in `2pa-byps.sh` was adapted from
-the work of **[Maxim Raznatovski](https://github.com/maximmaxim345)**:
-- Repository: [yoga_pro_9i_gen9_linux](https://github.com/maximmaxim345/yoga_pro_9i_gen9_linux)
-
-All credit for the original register values goes to him.
-
-The ACPI HID-based I2C bus lookup that replaced the original index-based
-detection was contributed by [@0xEthamin](https://github.com/0xEthamin) via
-[issue #1](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/1).
-
 ---
 
-## Secondary Issue: Boot-Time Firmware Loading
+## 🥶 Secondary Issue: Boot-Time Firmware Loading
 
 Even with the codec quirk fix applied, the TAS2781 DSP firmware may silently
 fail to load at **cold boot**, leaving the speakers at ~10-15% volume. After
 **S3 suspend/resume** the firmware loads correctly.
 
-### Root cause
+### 🔍 Root cause
 
 The BIOS initialises the TAS2781 amplifiers in a hardware state that is
 incompatible with the kernel's `request_firmware_nowait()` path in
 `tas2781_hda_comp_bind()`. No error is logged; the driver continues without
 calibration data. A simple driver module reload (`modprobe -r` / `modprobe`)
-is not sufficient — the hardware itself must be power-cycled back to factory
+is not sufficient - the hardware itself must be power-cycled back to factory
 state.
 
 Removing the Intel I2C controller PCI device (`0000:00:15.2`) causes ACPI to
@@ -164,7 +174,7 @@ programs the amps via I2C after each WirePlumber start instead.
 This bug has been reported to the ALSA maintainers:
 [\[BUG\] snd\_hda\_scodec\_tas2781\_i2c: DSP firmware silently fails to load at cold boot](https://lore.kernel.org/linux-sound/20260501175633.bug1-ramon@vanraaij.eu/T/#u)
 
-### Fix: systemd boot service
+### 🛠️ Fix: systemd boot service
 
 `build.sh` installs `systemd/tas2781-firmware-reload.service` to
 `/etc/systemd/system/` and enables it. The service runs after `sound.target`
@@ -186,19 +196,21 @@ ExecStart=/bin/sleep 5               # wait for bind + firmware load
 > the removal itself. Fixed upstream:
 > [PipeWire issue #5255](https://gitlab.freedesktop.org/pipewire/pipewire/-/work_items/5255)
 
-### Fix: sleep hook
+### 😴 Fix: sleep hook
 
 `build.sh` installs `systemd/system-sleep/tas2781-firmware-resume` to
 `/usr/lib/systemd/system-sleep/`, replacing the modprobe-based approach with a
 direct call to `2pa-byps.sh`. This is safe to run while PipeWire is active and
 works for all sleep types (s2idle, S3, hibernate).
 
-## Tertiary Issue: Runtime Volume Loss After Extended Idle
+---
+
+## 🔇 Tertiary Issue: Runtime Volume Loss After Extended Idle
 
 Even with the boot and sleep fixes in place, volume can drop again after the
 system has been idle for an extended period (typically when the display goes off).
 
-### Root cause
+### 🔍 Root cause
 
 Two distinct mechanisms cause runtime volume loss:
 
@@ -220,7 +232,7 @@ physical power rail to the entire I2C bus and erasing all TAS2781 register
 state, regardless of whether the TAS2781 I2C device itself is pinned to
 `power/control=on`.
 
-### Fix 1: block `snd_hda_scodec_tas2781_i2c` (eliminates the firmware-reload path)
+### 🚫 Fix 1: block `snd_hda_scodec_tas2781_i2c` (eliminates the firmware-reload path)
 
 The primary fix is to prevent `snd_hda_scodec_tas2781_i2c` from loading at all.
 Without the driver, `power_up_sync()` is never called and the SOF DSP D0ix cycle
@@ -246,7 +258,7 @@ sudo mkinitcpio -P
 sudo reboot
 ```
 
-### Fix 2: pin the PCI I2C controller to always-on (prevents register erasure)
+### 🔌 Fix 2: pin the PCI I2C controller to always-on (prevents register erasure)
 
 ```bash
 # Immediate (until next reboot)
@@ -278,7 +290,7 @@ cat /sys/bus/pci/devices/0000:00:15.2/power/control
 > 16IMH9 (Intel Meteor Lake). Verify your slot with `lspci | grep DesignWare`
 > and `ls /sys/bus/pci/devices/0000:00:15.2/`.
 
-### Fix 3: re-initialise registers after every WirePlumber restart (runtime recovery)
+### 🔁 Fix 3: re-initialise registers after every WirePlumber restart (runtime recovery)
 
 With `snd_hda_scodec_tas2781_i2c` blocked by the blacklist (Fix 1), the driver
 never runs and `2pa-byps.sh` is the sole authority on amp programming. However,
@@ -332,7 +344,7 @@ You can also call `2pa-byps.sh` at any time to restore volume without rebooting:
 sudo /usr/local/bin/2pa-byps.sh
 ```
 
-### Optional: KDE Plasma autostart (legacy, not applicable with the blacklist)
+### 📎 Optional: KDE Plasma autostart (legacy, not applicable with the blacklist)
 
 `autostart/tas2781-force-load.sh` polls for the `Speaker Force Firmware Load`
 ALSA control and sets it. That control is only registered when
@@ -341,7 +353,9 @@ in place, the driver never loads and the control never appears; this script
 times out after 30 seconds and exits. It is kept here for reference but is a
 no-op in the recommended setup.
 
-## Implementation as a DKMS Module
+---
+
+## 📦 Implementation as a DKMS Module
 
 Because `snd-hda-codec-alc269` is an in-tree module, the simplest permanent
 fix is a DKMS out-of-tree replacement. DKMS automatically rebuilds the module
@@ -349,45 +363,47 @@ against each new kernel install.
 
 The module compiles a single source file (`alc269.c`) and requires internal
 HDA headers that are not shipped with the standard kernel-headers package.
-`pre_build.sh` — a DKMS `PRE_BUILD` hook — fetches everything from zen-kernel
+`pre_build.sh` - a DKMS `PRE_BUILD` hook - fetches everything from zen-kernel
 via a git sparse checkout before each compile. This runs automatically on
 initial install and on every subsequent kernel upgrade.
 
-### Directory layout inside the DKMS source tree
+### 📂 Directory layout inside the DKMS source tree
 
 ```
 /usr/src/snd-hda-codec-alc269-fix-1.0/
 ├── Makefile
 ├── dkms.conf
-├── pre_build.sh             ← DKMS PRE_BUILD hook; fetches sources before each build
-├── yoga9-16imh9.patch       ← upstream-accepted codec quirk fix for 17aa:38d6
-├── yoga9-16imh9-38d5.patch  ← follow-up extending the fix to the 17aa:38d5 variant
-├── codecs/                  ← populated by pre_build.sh at build time
+├── pre_build.sh             <- DKMS PRE_BUILD hook; fetches sources before each build
+├── yoga9-16imh9.patch       <- upstream-accepted codec quirk fix for 17aa:38d6
+├── yoga9-16imh9-38d5.patch  <- follow-up extending the fix to the 17aa:38d5 variant
+├── codecs/                  <- populated by pre_build.sh at build time
 │   ├── realtek/
-│   │   ├── alc269.c        ← patched compilation unit
-│   │   └── realtek.h       ← includes generic.h, hda_component.h, hda_common headers
-│   ├── generic.h           ← realtek.h: #include "../generic.h"
+│   │   ├── alc269.c        <- patched compilation unit
+│   │   └── realtek.h       <- includes generic.h, hda_component.h, hda_common headers
+│   ├── generic.h           <- realtek.h: #include "../generic.h"
 │   ├── side-codecs/
-│   │   └── hda_component.h ← realtek.h: #include "../side-codecs/hda_component.h"
-│   └── helpers/            ← alc269.c: #include "../helpers/<file>.c"
+│   │   └── hda_component.h <- realtek.h: #include "../side-codecs/hda_component.h"
+│   └── helpers/            <- alc269.c: #include "../helpers/<file>.c"
 │       ├── thinkpad.c
 │       ├── ideapad_hotkey_led.c
 │       ├── hp_x360.c
 │       └── ideapad_s740.c
-└── hda_common/           ← populated by pre_build.sh at build time
-    ├── hda_local.h         ← added to ccflags so realtek.h finds these
+└── hda_common/           <- populated by pre_build.sh at build time
+    ├── hda_local.h         <- added to ccflags so realtek.h finds these
     ├── hda_auto_parser.h
     ├── hda_beep.h
     └── hda_jack.h
 ```
 
-### Why the module is larger than the in-tree version
+### ⚖️ Why the module is larger than the in-tree version
 
 The in-tree module is compiled with Link Time Optimization (LTO) as part of the
 full kernel build. The out-of-tree DKMS build does not use LTO, so the binary
 is roughly 30% larger than the original. This has no functional impact.
 
-## Prerequisites
+---
+
+## 📋 Prerequisites
 
 | Package | Purpose |
 |---|---|
@@ -406,9 +422,11 @@ Install on Arch Linux:
 sudo pacman -S dkms linux-zen-headers git zstd patch base-devel
 ```
 
-## Quick Start (Automated)
+---
 
-Requires internet access — `pre_build.sh` fetches zen-kernel sources during
+## ⚡ Quick Start (Automated)
+
+Requires internet access - `pre_build.sh` fetches zen-kernel sources during
 the build step.
 
 ```bash
@@ -423,11 +441,13 @@ sudo reboot
 blacklist (rebuilt into the initramfs), and the WirePlumber companion service.
 After reboot, test the speakers at full volume.
 
-## Manual Build Steps
+---
+
+## 🛠️ Manual Build Steps
 
 If you prefer to run each step individually:
 
-### 1. Set up the DKMS source tree
+### 🧱 1. Set up the DKMS source tree
 
 Copy the build scaffolding from the cloned repo into the DKMS source directory:
 
@@ -439,7 +459,7 @@ sudo cp Makefile dkms.conf pre_build.sh \
 sudo chmod +x /usr/src/snd-hda-codec-alc269-fix-1.0/pre_build.sh
 ```
 
-### 2. Register, build, and install via DKMS
+### ⚙️ 2. Register, build, and install via DKMS
 
 ```bash
 sudo dkms add snd-hda-codec-alc269-fix/1.0
@@ -448,7 +468,7 @@ sudo dkms install snd-hda-codec-alc269-fix/1.0
 ```
 
 `dkms build` calls `pre_build.sh`, which derives the zen-kernel branch from
-the running kernel version (e.g. `7.0.2-zen1-1-zen` → `7.0/main`), fetches
+the running kernel version (e.g. `7.0.2-zen1-1-zen` -> `7.0/main`), fetches
 the required source files via git sparse checkout, applies the patch, and
 places the results in the DKMS source tree for compilation. Internet access
 is required.
@@ -458,14 +478,16 @@ If the build fails, check the log:
 sudo cat /var/lib/dkms/snd-hda-codec-alc269-fix/1.0/$(uname -r)/x86_64/log/make.log
 ```
 
-### 3. Reboot
+### 🔁 3. Reboot
 
 The running audio subsystem holds the module; a live reload is not possible:
 ```bash
 sudo reboot
 ```
 
-## Verification
+---
+
+## ✅ Verification
 
 After reboot, run the following checks:
 
@@ -500,7 +522,9 @@ aplay -l
 amixer -c sofhdadsp scontrols | grep -i speaker
 ```
 
-## Kernel Updates
+---
+
+## 🔄 Kernel Updates
 
 DKMS rebuilds the module automatically when a new kernel is installed.
 `pre_build.sh` derives the correct zen-kernel branch from the new kernel
@@ -523,7 +547,9 @@ to match the new upstream file, then reinstall:
 ./build.sh
 ```
 
-## Rollback / Uninstall
+---
+
+## ⏪ Rollback / Uninstall
 
 ```bash
 # Using the build script (handles everything below automatically)
@@ -553,9 +579,11 @@ sudo reboot
 
 DKMS restores the archived original module on `dkms remove`.
 
-## Additional Notes
+---
 
-### udev PM keepalive rule
+## 📝 Additional Notes
+
+### 🔌 udev PM keepalive rule
 
 Even with the correct fixup, the TAS2781 I2C device defaults to
 runtime-PM `auto` with a 3-second autosuspend. On resume after audio
@@ -577,14 +605,14 @@ cat /sys/bus/i2c/devices/i2c-TIAS2781:00/power/control
 # Expected: on
 ```
 
-### Note on the TXNW2781 variant
+### ⚠️ Note on the TXNW2781 variant
 
 Some other Lenovo machines use a different TAS2781 variant with ACPI HID
 `TXNW2781`. The corresponding fixup is `ALC287_FIXUP_TXNW2781_I2C`. Do **not**
-use that fixup for the Yoga Pro 9 16IMH9 — the ACPI HID here is `TIAS2781`
+use that fixup for the Yoga Pro 9 16IMH9 - the ACPI HID here is `TIAS2781`
 (confirmed via `/sys/bus/i2c/devices/i2c-TIAS2781:00/modalias`).
 
-### Upstream status
+### ⬆️ Upstream status
 
 **Codec quirk patch - released in 7.1; stable backport still pending.**
 Submitted to `linux-sound@vger.kernel.org` on 30 April 2026 and accepted by
@@ -610,19 +638,19 @@ The variant was reported and verified on hardware by GitHub user
 [@0xEthamin](https://github.com/0xEthamin) via
 [issue #1](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/1).
 
-**Boot firmware loading bug — reported.**
+**Boot firmware loading bug - reported.**
 Filed with the ALSA maintainers on 1 May 2026:
 [\[BUG\] snd\_hda\_scodec\_tas2781\_i2c: DSP firmware silently fails to load at cold boot](https://lore.kernel.org/linux-sound/20260501175633.bug1-ramon@vanraaij.eu/T/#u)
 (Cc: `alsa-devel@alsa-project.org`, Takashi Iwai, Shenghao Ding / TI)
 
-**PCI I2C controller D3cold idle bug — reported.**
+**PCI I2C controller D3cold idle bug - reported.**
 Filed with the ALSA maintainers on 3 May 2026:
 [\[BUG\] snd\_hda\_scodec\_tas2781\_i2c: parent I2C controller enters D3cold during idle, erasing amp register state](https://lore.kernel.org/linux-sound/20260502230243.bug2-ramon@vanraaij.eu/T/#u)
 (Cc: `alsa-devel@alsa-project.org`, Takashi Iwai, Shenghao Ding / TI)
 
-**WirePlumber hot-removal crash — fixed upstream.**
+**WirePlumber hot-removal crash - fixed upstream.**
 Filed at PipeWire/WirePlumber on 1 May 2026, moved to the PipeWire tracker:
-[PipeWire issue #5255 — SIGSEGV in snd_hctl_elem_get_interface when ALSA sound device is hot-removed](https://gitlab.freedesktop.org/pipewire/pipewire/-/work_items/5255)
+[PipeWire issue #5255 - SIGSEGV in snd_hctl_elem_get_interface when ALSA sound device is hot-removed](https://gitlab.freedesktop.org/pipewire/pipewire/-/work_items/5255)
 
 Root-caused on 1 June 2026: the ACP mixer code (vendored from PulseAudio) handles
 a control removal by nulling the mixer element's private hctl pointer and
@@ -640,13 +668,54 @@ that detaches the element and unlinks it from the mixer in one step. The same
 issue still exists in PulseAudio's copy of the ACP code and remains to be fixed
 there.
 
-## Tested Environment
+---
+
+## 🧪 Tested Environment
 
 | Item | Value |
 |---|---|
-| Machine | Lenovo Yoga Pro 9 16IMH9 |
-| OS | Arch Linux |
-| Kernel | `7.0.3-zen1-1-zen` (linux-zen) |
-| zen-kernel commit | `d36eb0562b3bf60c8272ef486d001a07e85486fc` |
-| DKMS | 3.4.0 |
-| Firmware | `/lib/firmware/ti/audio/tas2781/TAS2XXX38D6.bin.zst` |
+| **Machine** | Lenovo Yoga Pro 9 16IMH9 |
+| **OS** | Arch Linux |
+| **Kernel** | `7.0.3-zen1-1-zen` (linux-zen) |
+| **zen-kernel commit** | `d36eb0562b3bf60c8272ef486d001a07e85486fc` |
+| **DKMS** | 3.4.0 |
+| **Firmware** | `/lib/firmware/ti/audio/tas2781/TAS2XXX38D6.bin.zst` |
+
+---
+
+## 📜 License
+
+Copyright (c) 2026 Rámon van Raaij.
+
+This project is licensed under the BSD 3-Clause License - see the [`LICENSE.md`](LICENSE.md) file for details.
+
+---
+
+## 🤝 Credits & Maintenance
+
+Developed and maintained by **[Rámon van Raaij](https://ramon.vanraaij.eu)** (2026).
+
+The I2C register initialisation sequence in `2pa-byps.sh` was adapted from
+the work of **[Maxim Raznatovski](https://github.com/maximmaxim345)**:
+*   Repository: [yoga_pro_9i_gen9_linux](https://github.com/maximmaxim345/yoga_pro_9i_gen9_linux)
+
+All credit for the original register values goes to him.
+
+The ACPI HID-based I2C bus lookup that replaced the original index-based
+detection was contributed by [@0xEthamin](https://github.com/0xEthamin) via
+[issue #1](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/1).
+
+*   **🦋 Bluesky:** [@ramonvanraaij.nl](https://bsky.app/profile/ramonvanraaij.nl)
+*   **🐙 GitHub:** [@ramonvanraaij](https://github.com/ramonvanraaij)
+*   **🌐 Website:** [ramon.vanraaij.eu](https://ramon.vanraaij.eu)
+
+---
+
+## ☕ Buy me a Coffee
+
+If you found this project helpful, informative, or if it saved you some time, consider supporting my work! Your support motivates me to keep building and sharing.
+
+*   **💳 [Bunq.me](https://bunq.me/ramonvanraaij)** (iDeal, Bancontact, Cards)
+*   **🅿️ [PayPal](http://paypal.me/ramonvanraaij)**
+
+Thank you for your support! ❤️
