@@ -4,7 +4,7 @@
 # TAS2781 DSP Firmware Force-Load at KDE Session Start
 #
 # Copyright (c) 2026 Rámon van Raaij
-# License: MIT
+# License: BSD 3-Clause
 # Author: Rámon van Raaij | Bluesky: @ramonvanraaij.nl | GitHub: https://github.com/ramonvanraaij | Website: https://ramon.vanraaij.eu
 #
 # Install at /usr/local/bin/tas2781-force-load.sh (executable) and add

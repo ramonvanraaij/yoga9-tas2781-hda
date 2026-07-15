@@ -5,7 +5,7 @@
 # Lenovo Yoga Pro 9 16IMH9
 #
 # Copyright (c) 2026 Rámon van Raaij
-# License: MIT
+# License: BSD 3-Clause
 # Author: Rámon van Raaij | Bluesky: @ramonvanraaij.nl | GitHub: https://github.com/ramonvanraaij | Website: https://ramon.vanraaij.eu
 #
 # This script installs a patched snd-hda-codec-alc269 kernel module as a
