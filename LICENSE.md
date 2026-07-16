@@ -1,3 +1,17 @@
+# License
+
+This repository is BSD 3-Clause licensed (full text below), with one exception:
+
+- **`yoga9-16imh9.patch`** and **`yoga9-16imh9-38d5.patch`** (the codec quirk
+  patches) are licensed **GPL-2.0-only**. They are modifications to the Linux
+  kernel's `sound/hda/codecs/realtek/alc269.c`, which is GPL-2.0-only, and
+  their changes were submitted to and accepted by the upstream kernel
+  (released in Linux 7.1) under that license.
+
+Everything else in this repository is under the BSD 3-Clause License below.
+
+---
+
 BSD 3-Clause License
 
 Copyright (c) 2026, Rámon van Raaij

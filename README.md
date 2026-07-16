@@ -3,7 +3,7 @@
 [![Arch Linux](https://img.shields.io/badge/Arch%20Linux-linux--zen%207.x-1793d1?logo=archlinux&logoColor=white&style=flat-square)](https://archlinux.org)
 [![Upstream](https://img.shields.io/badge/Upstream-merged%20in%20Linux%207.1-success?style=flat-square)](https://lore.kernel.org/linux-sound/20260430191224.patch1-ramon@vanraaij.eu/)
 [![DKMS](https://img.shields.io/badge/DKMS-snd--hda--codec--alc269--fix-blue?style=flat-square)](https://github.com/dell/dkms)
-[![License](https://img.shields.io/badge/License-BSD--3--Clause-blue?style=flat-square)](LICENSE.md)
+[![License](https://img.shields.io/badge/License-BSD--3--Clause%20%2B%20GPL--2.0-blue?style=flat-square)](LICENSE.md)
 
 A collection of Linux audio fixes for the **Lenovo Yoga Pro 9 16IMH9** under
 Linux kernel 7.x (zen). Addresses three separate issues that leave the
@@ -687,7 +687,11 @@ there.
 
 Copyright (c) 2026 Rámon van Raaij.
 
-This project is licensed under the BSD 3-Clause License - see the [`LICENSE.md`](LICENSE.md) file for details.
+This project is licensed under the BSD 3-Clause License, with one exception: the
+kernel codec quirk patches (`yoga9-16imh9.patch`, `yoga9-16imh9-38d5.patch`) are
+**GPL-2.0-only** - they modify GPL-2.0-only Linux kernel code and were accepted
+upstream (released in Linux 7.1) under that license. See [`LICENSE.md`](LICENSE.md)
+for details.
 
 ---
 
