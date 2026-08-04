@@ -13,6 +13,11 @@ built-in speakers at ~10-15% of expected volume: a codec quirk collision
 PCI controller D3cold power management (mitigated via a modprobe blacklist,
 udev rule, and I2C bypass script).
 
+> **On kernel 7.1 or newer, the codec-quirk fix is already upstream** (in the
+> mainline kernel), so you only need Fix 2 (cold-boot firmware) and Fix 3
+> (runtime volume) below. The DKMS codec-quirk module is only for kernels older
+> than 7.1 that still lack it - currently the 6.18 LTS and earlier.
+
 ---
 
 ## 🚀 Overview
@@ -681,6 +686,7 @@ there.
 | **zen-kernel commit** | `d36eb0562b3bf60c8272ef486d001a07e85486fc` |
 | **DKMS** | 3.4.0 |
 | **Firmware** | `/lib/firmware/ti/audio/tas2781/TAS2XXX38D6.bin.zst` |
+| **Also verified on** | every `linux-zen` 7.0.x and 7.1.x release Arch shipped, through `7.1.5-zen1-2-zen` (Aug 2026); quirk in-tree from 7.1 |
 
 ---
 
