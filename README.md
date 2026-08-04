@@ -623,11 +623,12 @@ Linux **7.1 was released on 14 June 2026** carrying this quirk (and the
 17aa:38d5 follow-up below), so the codec-quirk component of this module is
 unnecessary on any 7.1.x kernel, including zen 7.1.x. The patch was also
 selected by AUTOSEL for stable backport to 7.0.y and 6.18.y (proposed 11 May
-2026, re-proposed 20 May 2026), but as of 6 July 2026 it has **not** yet
-shipped in a released stable point kernel: verified absent from 7.0.14 and
-6.18.38. Once it lands in a 7.0.y stable release,
-zen 7.0.x will carry it and the codec-quirk component becomes unnecessary
-there too.
+2026, re-proposed 20 May 2026), but it never shipped in a released stable point
+kernel before those series moved on: **7.0.y reached end-of-life at 7.0.14 (27
+June 2026) without the backport**, and as of 4 August 2026 it is still **absent
+from the 6.18 LTS** (verified missing through 6.18.42). So the quirk effectively
+ships only in 7.1 and later; the codec-quirk component of this module is now
+redundant on 7.1.x and useful only on a pre-7.1 kernel that still lacks it.
 
 **Codec SSID 17aa:38d5 follow-up - released in 7.1.**
 Submitted to `linux-sound@vger.kernel.org` on 6 May 2026 and accepted by
