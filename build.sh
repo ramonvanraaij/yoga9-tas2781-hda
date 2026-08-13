@@ -26,10 +26,12 @@
 # 3. Registers, builds, and installs the DKMS module.
 #
 # Usage:
-#   ./build.sh [--uninstall] [--dry-run]
+#   ./build.sh [--uninstall] [--dry-run] [--with-dkms]
 #
 #   --uninstall   Remove the DKMS module and restore the original.
 #   --dry-run     Show what would be done without making changes.
+#   --with-dkms   Build the DKMS codec-quirk module even on kernel 7.1+
+#                 (the quirk is in-tree there, so it is skipped by default).
 #
 # **Note:**
 #   Run as a regular user with sudo access. The script will invoke sudo
@@ -59,28 +61,35 @@ err()  { echo -e "\033[1;31m[x]\033[0m $1" >&2; }
 # Print usage and exit.
 usage() {
     cat >&2 <<'EOF'
-Usage: ./build.sh [--uninstall] [--dry-run]
+Usage: ./build.sh [--uninstall] [--dry-run] [--with-dkms]
 
   --uninstall   Remove the DKMS module and restore the original.
   --dry-run     Show what would be done without making changes.
+  --with-dkms   Build the DKMS codec-quirk module even on kernel 7.1+
+                (where the quirk is already in-tree and it is skipped
+                by default).
 EOF
     exit 1
 }
 
-# Check that required tools are installed and kernel headers are present.
+# Check that required tools are installed. When building the DKMS module
+# (need_dkms=1) the DKMS toolchain and matching kernel headers are also needed.
 check_prereqs() {
-    local kver="${1}"
+    local kver="${1}" need_dkms="${2}"
     local missing=()
-    for cmd in dkms git zstd sudo patch; do
-        command -v "$cmd" &>/dev/null || missing+=("$cmd")
-    done
+    command -v sudo &>/dev/null || missing+=("sudo")
+    if [[ "${need_dkms}" -eq 1 ]]; then
+        for cmd in dkms git zstd patch; do
+            command -v "$cmd" &>/dev/null || missing+=("$cmd")
+        done
+    fi
     if [[ ${#missing[@]} -gt 0 ]]; then
         err "Missing required tools: ${missing[*]}"
         err "Install with: sudo pacman -S ${missing[*]}"
         exit 1
     fi
 
-    if [[ ! -d "/lib/modules/${kver}/build" ]]; then
+    if [[ "${need_dkms}" -eq 1 && ! -d "/lib/modules/${kver}/build" ]]; then
         err "Kernel headers not found at /lib/modules/${kver}/build"
         err "Install with: sudo pacman -S linux-zen-headers"
         exit 1
@@ -89,15 +98,28 @@ check_prereqs() {
     log "Prerequisites OK."
 }
 
+# The 17aa:38d6/38d5 codec quirk is in the mainline kernel from 7.1 onward, so
+# the DKMS codec-quirk module is redundant on 7.1+. Returns 0 (true) if the
+# given kernel version already carries the quirk in-tree.
+kernel_has_intree_quirk() {
+    local kver="${1}" maj min
+    maj="$(printf '%s' "${kver}" | sed -nE 's/^([0-9]+)\..*/\1/p')"
+    min="$(printf '%s' "${kver}" | sed -nE 's/^[0-9]+\.([0-9]+).*/\1/p')"
+    [[ "${maj}" =~ ^[0-9]+$ && "${min}" =~ ^[0-9]+$ ]] || return 1
+    (( maj > 7 || ( maj == 7 && min >= 1 ) ))
+}
+
 # --- Main ---
 
 DRY_RUN=""
 UNINSTALL=0
+WITH_DKMS=0
 
 for arg in "$@"; do
     case "${arg}" in
         --uninstall) UNINSTALL=1 ;;
         --dry-run)   DRY_RUN=1 ;;
+        --with-dkms) WITH_DKMS=1 ;;
         --help|-h)   usage ;;
         *) err "Unknown option: ${arg}"; usage ;;
     esac
@@ -153,13 +175,24 @@ if [[ "${KVER}" != *zen* ]]; then
     warn "This fix targets the zen-kernel source tree. Proceed at your own risk."
 fi
 
+# Skip the DKMS codec-quirk module on 7.1+ (quirk is in-tree), unless forced.
+INSTALL_DKMS=1
+if kernel_has_intree_quirk "${KVER}" && [[ "${WITH_DKMS}" -eq 0 ]]; then
+    INSTALL_DKMS=0
+fi
+
 if [[ -n "${DRY_RUN}" ]]; then
     local_branch="$(echo "${KVER}" | sed 's/^\([0-9]*\.[0-9]*\).*/\1/')/main"
     log "DRY RUN — no changes will be made."
-    log "Would create DKMS tree at ${DKMS_SRC}"
-    log "Would copy Makefile, dkms.conf, pre_build.sh, yoga9-16imh9.patch, yoga9-16imh9-38d5.patch"
-    log "Would fetch zen-kernel sources from branch ${local_branch} during build"
-    log "Would run: sudo dkms add/build/install ${MODULE_NAME}/${MODULE_VERSION}"
+    if [[ "${INSTALL_DKMS}" -eq 1 ]]; then
+        log "Would create DKMS tree at ${DKMS_SRC}"
+        log "Would copy Makefile, dkms.conf, pre_build.sh, yoga9-16imh9.patch, yoga9-16imh9-38d5.patch"
+        log "Would fetch zen-kernel sources from branch ${local_branch} during build"
+        log "Would run: sudo dkms add/build/install ${MODULE_NAME}/${MODULE_VERSION}"
+    else
+        log "Codec quirk is in-tree on ${KVER} (kernel 7.1+); would SKIP the DKMS module."
+        log "  (use --with-dkms to build it anyway)"
+    fi
     log "Would install systemd/tas2781-firmware-reload.service → /etc/systemd/system/"
     log "Would install systemd/system-sleep/tas2781-firmware-resume → /usr/lib/systemd/system-sleep/"
     log "Would run: sudo systemctl enable --now tas2781-firmware-reload.service"
@@ -171,39 +204,45 @@ if [[ -n "${DRY_RUN}" ]]; then
     exit 0
 fi
 
-check_prereqs "${KVER}"
+check_prereqs "${KVER}" "${INSTALL_DKMS}"
 
-# If already fully installed for this kernel, nothing to do.
-if sudo dkms status 2>/dev/null | grep -q "^${MODULE_NAME}/${MODULE_VERSION}.*${KVER}.*installed"; then
-    warn "Module ${MODULE_NAME}/${MODULE_VERSION} is already installed for ${KVER}."
-    warn "Run with --uninstall first if you want to reinstall."
-    exit 0
+if [[ "${INSTALL_DKMS}" -eq 1 ]]; then
+    # If already fully installed for this kernel, nothing to do.
+    if sudo dkms status 2>/dev/null | grep -q "^${MODULE_NAME}/${MODULE_VERSION}.*${KVER}.*installed"; then
+        warn "Module ${MODULE_NAME}/${MODULE_VERSION} is already installed for ${KVER}."
+        warn "Run with --uninstall first if you want to reinstall."
+        exit 0
+    fi
+
+    # Clear any partial registration (e.g. added but not built) to start clean.
+    if sudo dkms status 2>/dev/null | grep -q "^${MODULE_NAME}/${MODULE_VERSION}"; then
+        warn "Removing stale DKMS registration before reinstalling ..."
+        sudo dkms remove "${MODULE_NAME}/${MODULE_VERSION}" --all 2>/dev/null || true
+        sudo rm -rf "${DKMS_SRC}"
+    fi
+
+    log "Creating DKMS source tree at ${DKMS_SRC} ..."
+    sudo mkdir -p "${DKMS_SRC}"
+    sudo cp "${SCRIPT_DIR}/Makefile"                  "${DKMS_SRC}/"
+    sudo cp "${SCRIPT_DIR}/dkms.conf"                 "${DKMS_SRC}/"
+    sudo cp "${SCRIPT_DIR}/pre_build.sh"              "${DKMS_SRC}/"
+    sudo cp "${SCRIPT_DIR}/yoga9-16imh9.patch"        "${DKMS_SRC}/"
+    sudo cp "${SCRIPT_DIR}/yoga9-16imh9-38d5.patch"   "${DKMS_SRC}/"
+    sudo chmod +x "${DKMS_SRC}/pre_build.sh"
+
+    log "Registering DKMS module ..."
+    sudo dkms add "${MODULE_NAME}/${MODULE_VERSION}"
+
+    log "Building DKMS module (fetching zen-kernel sources, this may take a minute) ..."
+    sudo dkms build "${MODULE_NAME}/${MODULE_VERSION}"
+
+    log "Installing DKMS module ..."
+    sudo dkms install "${MODULE_NAME}/${MODULE_VERSION}"
+else
+    log "Codec quirk is in-tree on ${KVER} (kernel 7.1+); skipping the DKMS module."
+    log "Installing the boot-firmware and runtime-register fixes only."
+    log "(Use --with-dkms to build the DKMS module anyway.)"
 fi
-
-# Clear any partial registration (e.g. added but not built) to start clean.
-if sudo dkms status 2>/dev/null | grep -q "^${MODULE_NAME}/${MODULE_VERSION}"; then
-    warn "Removing stale DKMS registration before reinstalling ..."
-    sudo dkms remove "${MODULE_NAME}/${MODULE_VERSION}" --all 2>/dev/null || true
-    sudo rm -rf "${DKMS_SRC}"
-fi
-
-log "Creating DKMS source tree at ${DKMS_SRC} ..."
-sudo mkdir -p "${DKMS_SRC}"
-sudo cp "${SCRIPT_DIR}/Makefile"                  "${DKMS_SRC}/"
-sudo cp "${SCRIPT_DIR}/dkms.conf"                 "${DKMS_SRC}/"
-sudo cp "${SCRIPT_DIR}/pre_build.sh"              "${DKMS_SRC}/"
-sudo cp "${SCRIPT_DIR}/yoga9-16imh9.patch"        "${DKMS_SRC}/"
-sudo cp "${SCRIPT_DIR}/yoga9-16imh9-38d5.patch"   "${DKMS_SRC}/"
-sudo chmod +x "${DKMS_SRC}/pre_build.sh"
-
-log "Registering DKMS module ..."
-sudo dkms add "${MODULE_NAME}/${MODULE_VERSION}"
-
-log "Building DKMS module (fetching zen-kernel sources, this may take a minute) ..."
-sudo dkms build "${MODULE_NAME}/${MODULE_VERSION}"
-
-log "Installing DKMS module ..."
-sudo dkms install "${MODULE_NAME}/${MODULE_VERSION}"
 
 log "Installing boot firmware reload service ..."
 sudo install -m 644 "${SCRIPT_DIR}/systemd/tas2781-firmware-reload.service" \
@@ -250,7 +289,11 @@ systemctl --user daemon-reload
 systemctl --user enable --now tas2781-amp-fix.service
 
 log ""
-log "Done! Reboot to load the patched module with the firmware fix."
+if [[ "${INSTALL_DKMS}" -eq 1 ]]; then
+    log "Done! Reboot to load the patched module with the firmware fix."
+else
+    log "Done! The codec quirk is already in your kernel; reboot to apply the firmware fix."
+fi
 log "After reboot, verify with:"
 log "  dmesg | grep -i 'tas2781\|alc287\|38d6'"
 log "  aplay -l    (should show speakers)"
