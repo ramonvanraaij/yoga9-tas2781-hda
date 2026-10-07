@@ -194,8 +194,8 @@ ExecStart=modprobe snd_hda_scodec_tas2781_i2c || true
 ExecStart=/bin/sleep 5               # wait for bind + firmware load
 ```
 
-> **Important:** the service must run before PipeWire starts. On PipeWire before
-> the #5255 fix, power-cycling the PCI device (remove + rescan) while WirePlumber
+> **Important:** the service must run before PipeWire starts. On PipeWire older
+> than 1.6.7 (the #5255 fix), power-cycling the PCI device (remove + rescan) while WirePlumber
 > has the card open crashes it with a SIGSEGV in `snd_hctl_elem_get_interface`
 > (libasound); the crash fires when the re-probe re-adds an ALSA control, not on
 > the removal itself. Fixed upstream:
@@ -630,8 +630,8 @@ unnecessary on any 7.1.x kernel, including zen 7.1.x. The patch was also
 selected by AUTOSEL for stable backport to 7.0.y and 6.18.y (proposed 11 May
 2026, re-proposed 20 May 2026), but it never shipped in a released stable point
 kernel before those series moved on: **7.0.y reached end-of-life at 7.0.14 (27
-June 2026) without the backport**, and as of 4 August 2026 it is still **absent
-from the 6.18 LTS** (verified missing through 6.18.42). So the quirk effectively
+June 2026) without the backport**, and as of October 2026 it is still **absent
+from the 6.18 LTS** (verified missing through 6.18.55). So the quirk effectively
 ships only in 7.1 and later; the codec-quirk component of this module is now
 redundant on 7.1.x and useful only on a pre-7.1 kernel that still lacks it.
 
@@ -670,9 +670,9 @@ Fixed on 9 June 2026 by Wim Taymans (commit
 [`25203c52`](https://gitlab.freedesktop.org/pipewire/pipewire/-/commit/25203c5293040c4f3b248293759c3df77dd78f43),
 "acp: avoid segfault when removing a card"), which swaps the
 `snd_mixer_elem_detach()` in the remove branch for `snd_mixer_elem_remove()` -
-that detaches the element and unlinks it from the mixer in one step. The same
-issue still exists in PulseAudio's copy of the ACP code and remains to be fixed
-there.
+that detaches the element and unlinks it from the mixer in one step. Released
+in **PipeWire 1.6.7 (18 June 2026)**. The same issue still exists in
+PulseAudio's copy of the ACP code and remains to be fixed there.
 
 ---
 
