@@ -686,7 +686,7 @@ PulseAudio's copy of the ACP code and remains to be fixed there.
 | **zen-kernel commit** | `d36eb0562b3bf60c8272ef486d001a07e85486fc` |
 | **DKMS** | 3.4.0 |
 | **Firmware** | `/lib/firmware/ti/audio/tas2781/TAS2XXX38D6.bin.zst` |
-| **Also verified on** | every `linux-zen` 7.0.x and 7.1.x release Arch shipped, through `7.1.5-zen1-2-zen` (Aug 2026); quirk in-tree from 7.1 |
+| **Also verified on** | every `linux-zen` 7.0.x and 7.1.x release Arch shipped, through `7.1.5-zen1-2-zen` (Aug 2026), and `7.2.9-zen1-1-zen` (Oct 2026); quirk in-tree from 7.1 |
 
 ---
 
