@@ -45,10 +45,10 @@ KVER="${kernelver:-$(uname -r)}"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly ZEN_REPO="https://github.com/zen-kernel/zen-kernel.git"
 
-# Patches are applied in this order. The base patch is the upstream-accepted
-# fix for codec SSID 0x38d6 (commit 56722cfb in tiwai/sound for-linus). The
-# 38d5 patch is a follow-up adding the same fixup for the variant SSID
-# (reported via GitHub issue #1) and is not yet upstream.
+# Patches are applied in this order. The base patch is the upstream fix for
+# codec SSID 0x38d6 (commit 56722cfb, mainline since 7.1). The 38d5 patch is a
+# follow-up adding the same fixup for the variant SSID (reported via GitHub
+# issue #1; commit 91892231, mainline since 7.1).
 #
 # Invariant: each entry must add exactly one HDA_CODEC_QUIRK line and nothing
 # else functional. The skip-if-already-present logic in apply_patches keys off
@@ -119,9 +119,8 @@ fetch_sources() {
 # patch would add is already present in the fetched alc269.c.
 #
 # This lets apply_patches skip a patch whose quirk has since been merged
-# upstream - e.g. once the codec SSID quirk reaches zen 7.0.x via the stable
-# backport, the fetched source already contains it and the patch would no
-# longer apply. The check matches on the functional HDA_CODEC_QUIRK line only,
+# upstream - e.g. when the fetched zen branch is 7.1 or later, the source
+# already contains both quirks and the patches would no longer apply. The check matches on the functional HDA_CODEC_QUIRK line only,
 # so it tolerates cosmetic differences such as a reworded surrounding comment.
 quirk_already_present() {
     local workdir="${1}"
