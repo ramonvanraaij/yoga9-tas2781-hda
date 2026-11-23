@@ -16,15 +16,15 @@ udev rule, and I2C bypass script).
 > **On kernel 7.1 or newer, the codec-quirk fix is already upstream** (in the
 > mainline kernel), so you only need Fix 2 (cold-boot firmware) and Fix 3
 > (runtime volume) below. The DKMS codec-quirk module is only for kernels older
-> than 7.1 that still lack it - currently the 6.18 LTS and earlier (a 6.18.y
-> backport of the 17aa:38d6 entry is in stable review).
+> than 7.1. The 6.18 LTS carries the 17aa:38d6 entry from 6.18.64 but not the
+> 17aa:38d5 one, so `build.sh` still builds the module on every pre-7.1 kernel.
 
 ---
 
 ## 🚀 Overview
 
 ### ✨ Key Fixes
-*   **🧩 Codec quirk collision:** an out-of-tree DKMS module adds the missing `HDA_CODEC_QUIRK` for codec SSID `17aa:38d6`, resolving the PCI SSID collision with the Legion S7 15IMH05; **merged upstream in Linux 7.1**.
+*   **🧩 Codec quirk collision:** an out-of-tree DKMS module adds the missing `HDA_CODEC_QUIRK` for codec SSID `17aa:38d6`, resolving the PCI SSID collision with the Legion S7 15IMH05; **merged upstream in Linux 7.1** (17aa:38d6 also in 6.18.64+).
 *   **🥶 Cold-boot firmware failure:** a systemd boot service power-cycles the I2C controller (D3cold) so the TAS2781 DSP firmware loads reliably.
 *   **🔇 Runtime volume loss:** a modprobe blacklist, an always-on udev rule, and the `2pa-byps.sh` I2C bypass script (run as a WirePlumber companion service) keep the amp registers programmed.
 *   **⬆️ Upstreamed:** two quirk patches accepted into Linux 7.1, two kernel bugs reported to the ALSA maintainers, and a WirePlumber crash root-caused and fixed upstream in PipeWire.
@@ -620,7 +620,7 @@ use that fixup for the Yoga Pro 9 16IMH9 - the ACPI HID here is `TIAS2781`
 
 ### ⬆️ Upstream status
 
-**Codec quirk patch - released in 7.1; 6.18.y backport in stable review.**
+**Codec quirk patch - released in 7.1 and 6.18.64.**
 Submitted to `linux-sound@vger.kernel.org` on 30 April 2026 and accepted by
 Takashi Iwai on 1 May 2026 (commit [`56722cfb`](https://github.com/tiwai/sound/commit/56722cfbb78d7eb41756cd78dc5192d08bd14f3d), branch `for-linus` of `tiwai/sound`):
 [\[PATCH\] ALSA: hda/realtek: Add codec SSID quirk for Lenovo Yoga Pro 9 16IMH9](https://lore.kernel.org/linux-sound/20260430191224.patch1-ramon@vanraaij.eu/)
@@ -629,12 +629,13 @@ Linux **7.1 was released on 14 June 2026** carrying this quirk (and the
 17aa:38d5 follow-up below), so the codec-quirk component of this module is
 unnecessary on any 7.1.x kernel, including zen 7.1.x. The patch was also
 selected by AUTOSEL for stable backport to 7.0.y and 6.18.y (proposed 11 May
-2026, re-proposed 20 May 2026), but it never shipped in a released stable point
-kernel before those series moved on: **7.0.y reached end-of-life at 7.0.14 (27
-June 2026) without the backport**, and as of November 2026 it is still **absent
-from the 6.18 LTS** (verified missing through 6.18.63). So the quirk effectively
-ships only in 7.1 and later; the codec-quirk component of this module is now
-redundant on 7.1.x and useful only on a pre-7.1 kernel that still lacks it.
+2026, re-proposed 20 May 2026), but those AUTOSEL picks never shipped: **7.0.y
+reached end-of-life at 7.0.14 (27 June 2026) without the backport**, and the 6.18
+LTS lacked it through 6.18.63. It reached 6.18.y through the series below, so
+the 17aa:38d6 entry ships in 7.1 and later and in 6.18.64 and later. On 6.18.64+
+the DKMS module is redundant for 17aa:38d6 boards but still needed for 17aa:38d5
+ones (see below); `build.sh` gates on the kernel version alone and builds the
+module on every pre-7.1 kernel.
 
 On 10 November 2026 Sasha Levin posted a 6.18.y backport series to
 `stable@vger.kernel.org` that carries this patch as a dependency
@@ -642,8 +643,8 @@ On 10 November 2026 Sasha Levin posted a 6.18.y backport series to
 `1c36207da794`, in Linux 7.4-rc1 and 7.3.4), together with the Legion 7 16ITHG6
 codec-SSID fix (`dd074f04e046`):
 [\[PATCH 6.18.y 1/3\] ALSA: hda/realtek: Add codec SSID quirk for Lenovo Yoga Pro 9 16IMH9](https://lore.kernel.org/stable/20261110141139.1831137-1-sashal@kernel.org/)
-The series is in review, not yet queued or released, and it carries only the
-17aa:38d6 entry. The Legion S7 fix changes only the fixup for PCI SSID
+The series passed the 6.18-stable review and was **released in 6.18.64 (17
+November 2026)**; 6.18.65 carries it too. It brings only the 17aa:38d6 entry. The Legion S7 fix changes only the fixup for PCI SSID
 17aa:3811 and does not change how the 16IMH9 is matched.
 
 **Codec SSID 17aa:38d5 follow-up - released in 7.1.**
@@ -654,7 +655,8 @@ Takashi Iwai on 7 May 2026 (commit [`91892231`](https://github.com/tiwai/sound/c
 The variant was reported and verified on hardware by GitHub user
 [@0xEthamin](https://github.com/0xEthamin) via
 [issue #1](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/1).
-It is not part of the 6.18.y backport series above.
+It was not part of the 6.18.y backport series above, and 6.18.y still lacks it
+(checked through 6.18.65).
 
 **Boot firmware loading bug - reported.**
 Filed with the ALSA maintainers on 1 May 2026:
@@ -698,7 +700,7 @@ PulseAudio's copy of the ACP code and remains to be fixed there.
 | **zen-kernel commit** | `d36eb0562b3bf60c8272ef486d001a07e85486fc` |
 | **DKMS** | 3.4.0 |
 | **Firmware** | `/lib/firmware/ti/audio/tas2781/TAS2XXX38D6.bin.zst` |
-| **Also verified on** | every `linux-zen` 7.0.x and 7.1.x release Arch shipped, through `7.1.5-zen1-2-zen` (Aug 2026), `7.2.9-zen1-1-zen` (Oct 2026), and `7.2.15-zen1-1-zen` (Nov 2026); quirk in-tree from 7.1 |
+| **Also verified on** | every `linux-zen` 7.0.x and 7.1.x release Arch shipped, through `7.1.5-zen1-2-zen` (Aug 2026), `7.2.9-zen1-1-zen` (Oct 2026), `7.2.15-zen1-1-zen` and `7.3.5-zen1-1-zen` (Nov 2026); quirk in-tree from 7.1 |
 
 ---
 
