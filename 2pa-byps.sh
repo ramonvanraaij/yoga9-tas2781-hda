@@ -27,7 +27,7 @@
 #   (Also invoked by tas2781-amp-fix.service and the system-sleep hook.)
 #
 # **Note:**
-#   i2c-tools must be installed (provides i2cset and i2cdetect).
+#   i2c-tools must be installed (provides i2cset and i2cget).
 #   Run as root (or via sudo).
 # =================================================================
 
@@ -87,11 +87,20 @@ fi
 # --- I2C address selection ---
 
 # 16IRP8 (Gen 8, 83BY) has four amplifiers at 0x39, 0x38, 0x3d, 0x3b.
-# All other supported models have two amplifiers at 0x3f and 0x38.
+# All other supported models have amplifiers at 0x3f (left) and 0x38 (right).
+# Four-amp 16IMH9 units (seen with codec SSIDs 17aa:38d5 and 17aa:38d6) add a
+# second pair at 0x3e (left) and 0x3d (right) that nothing else powers up. The
+# pair is added only when both addresses answer, so two-amp units are
+# unaffected. The loop below assigns the slot by index (even = left, odd =
+# right), so the order must stay 0x3f 0x38 0x3e 0x3d.
 if [[ "${laptop_model}" == "83BY" ]]; then
     i2c_addrs=(0x39 0x38 0x3d 0x3b)
 else
     i2c_addrs=(0x3f 0x38)
+    if i2cget -f -y "${i2c_bus}" 0x3e 0x00 >/dev/null 2>&1 &&
+       i2cget -f -y "${i2c_bus}" 0x3d 0x00 >/dev/null 2>&1; then
+        i2c_addrs+=(0x3e 0x3d)
+    fi
 fi
 
 # --- Register initialisation ---
