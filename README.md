@@ -690,12 +690,15 @@ lingers in the mixer's element list with a NULL slot. The next control add makes
 against PipeWire 1.6.6, verified on hardware, and posted to the issue; alsa-lib
 author Jaroslav Kysela confirmed the diagnosis.
 
-Fixed on 9 June 2026 by Wim Taymans (commit
-[`25203c52`](https://gitlab.freedesktop.org/pipewire/pipewire/-/commit/25203c5293040c4f3b248293759c3df77dd78f43),
-"acp: avoid segfault when removing a card"), which swaps the
-`snd_mixer_elem_detach()` in the remove branch for `snd_mixer_elem_remove()` -
-that detaches the element and unlinks it from the mixer in one step. Released
-in **PipeWire 1.6.7 (18 June 2026)**. The same issue still exists in
+Fixed on 9 June 2026 by Wim Taymans, "acp: avoid segfault when removing a card",
+committed to `master` as
+[`25203c52`](https://gitlab.freedesktop.org/pipewire/pipewire/-/commit/25203c5293040c4f3b248293759c3df77dd78f43)
+and to the 1.6 branch as
+[`590c17cc`](https://gitlab.freedesktop.org/pipewire/pipewire/-/commit/590c17cc1ceceeb7f4eb4ccf64c335e9a67bdc3f).
+Both swap the `snd_mixer_elem_detach()` in the remove branch for
+`snd_mixer_elem_remove()` - that detaches the element and unlinks it from the
+mixer in one step. The 1.6-branch commit shipped in **PipeWire 1.6.7 (18 June 2026)**,
+so every 1.6.7 and later release carries the fix. The same issue still exists in
 PulseAudio's copy of the ACP code and remains to be fixed there.
 
 ---
