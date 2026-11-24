@@ -743,6 +743,10 @@ The ACPI HID-based I2C bus lookup that replaced the original index-based
 detection was contributed by [@0xEthamin](https://github.com/0xEthamin) via
 [issue #1](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/1).
 
+Support for the second amplifier pair (0x3e and 0x3d) on four-amp units, with
+its channel mapping, was contributed by [@lianthar](https://github.com/lianthar) via
+[issue #2](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/2).
+
 *   **🦋 Bluesky:** [@ramonvanraaij.nl](https://bsky.app/profile/ramonvanraaij.nl)
 *   **🐙 GitHub:** [@ramonvanraaij](https://github.com/ramonvanraaij)
 *   **🌐 Website:** [ramon.vanraaij.eu](https://ramon.vanraaij.eu)
