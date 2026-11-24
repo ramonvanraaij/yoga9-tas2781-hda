@@ -47,7 +47,7 @@ TAS2781 smart amplifiers are powered but their DSP firmware is never loaded.
 | **Audio codec** | Realtek ALC287 |
 | **Codec subsystem ID** | `17aa:38d6` |
 | **PCI audio device subsystem ID** | `17aa:3811` |
-| **Smart amplifiers** | 2x TI TAS2781 (ACPI HID: `TIAS2781`) |
+| **Smart amplifiers** | 4x TI TAS2781 at I2C 0x3f, 0x38, 0x3e, 0x3d (ACPI HID: `TIAS2781`) |
 | **Driver stack** | SOF (Sound Open Firmware) -> snd-hda-codec-alc269 -> snd-hda-scodec-tas2781-i2c |
 
 ---
@@ -83,7 +83,7 @@ has **no `HDA_CODEC_QUIRK` entry** - so nothing overrides the wrong PCI match.
 ### 🎯 What the fixup needs to do
 
 The correct fixup for this machine is `ALC287_FIXUP_TAS2781_I2C`, which calls
-`tas2781_fixup_tias_i2c`. That function registers the two TAS2781 amplifiers
+`tas2781_fixup_tias_i2c`. That function registers the TAS2781 amplifiers
 via the HDA component framework using ACPI HID `TIAS2781`:
 
 ```c
@@ -305,6 +305,16 @@ resets the amps (e.g. a WirePlumber crash and restart, or an unrelated kernel
 PM event). `2pa-byps.sh` is therefore called from a systemd user service that
 tracks WirePlumber's lifecycle, ensuring registers are reprogrammed after every
 (re)start.
+
+Some 16IMH9 units have four amplifiers rather than two: besides 0x3f (left)
+and 0x38 (right) they carry a second pair at 0x3e (left) and 0x3d (right) that
+nothing else powers up, so half the woofers stay silent. `2pa-byps.sh` probes
+for that pair and programs all four when both addresses answer; its log line
+reports the count (`Programming 4 TAS2781 amplifier(s)`). Seen on units with
+codec SSID 17aa:38d5 and 17aa:38d6, both with discrete graphics (reported in
+[issue #2](https://github.com/ramonvanraaij/yoga9-tas2781-hda/issues/2)).
+Lenovo's spec sheet lists two woofers for integrated-graphics models, which
+would carry only the first pair.
 
 #### Manual installation of `2pa-byps.sh`
 
